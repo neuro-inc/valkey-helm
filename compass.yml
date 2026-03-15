@@ -1,0 +1,16 @@
+name: valkey-helm
+id: ari:cloud:compass:fde7f830-7324-4c6d-a5e8-d77f2dfcaf97:component/9ebf45c9-5202-415d-b1cf-76b0a59f7abd/6d642b06-4155-4cd7-bff1-f20eb32001df
+description: Valkey Helm Chart
+configVersion: 1
+typeId: SERVICE
+fields:
+  tier: 4
+links:
+  - name: null
+    type: REPOSITORY
+    url: https://github.com/neuro-inc/valkey-helm
+relationships:
+  DEPENDS_ON: []
+labels:
+  - source:github
+customFields: null
