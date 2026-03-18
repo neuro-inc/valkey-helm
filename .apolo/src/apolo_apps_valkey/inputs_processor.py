@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
-    _port: int = 5678
+    _port: int = 6379
 
     def __init__(
         self,
@@ -36,14 +36,6 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
         **kwargs: t.Any,
     ):
         super().__init__(client, *args, **kwargs)
-
-    def preset_to_values(self, preset: t.Any) -> dict[str, t.Any]:
-        # Stub implementation; replace with actual logic if needed
-        return {}
-
-    async def get_encryption_key(self, input_: ValkeyAppInputs) -> str:
-        # Stub implementation; replace with actual logic if needed
-        return ""
 
     def get_extra_env(
         self,
@@ -89,9 +81,7 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
             "auth": {"enabled": False},
             "enabled": self.is_webhook_enabled(input_),
             "architecture": str(config.architecture.architecture_type.value),
-            "primary": {
-                **(self.preset_to_values(config.preset)),
-            },
+            "primary": {},
         }
 
         # Type check for autoscaling attribute
@@ -100,8 +90,7 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
             and config.architecture.architecture_type
             == ValkeyArchitectureTypes.REPLICATION
         ):
-            replica_values = self.preset_to_values(config.architecture.replica_preset)
-            replica_config: dict[str, t.Any] = {**replica_values}
+            replica_config: dict[str, t.Any] = {}
             autoscaling = config.architecture.autoscaling
             if autoscaling is not None:
                 replica_config["autoscaling"] = {
@@ -242,8 +231,6 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
         )
         helm_values["extraEnv"] = extra_env
 
-        helm_values["secret"] = {
-            "n8n": {"encryption_key": await self.get_encryption_key(input_)}
-        }
+        helm_values["secret"] = {"n8n": {"encryption_key": ""}}
 
         return helm_values
