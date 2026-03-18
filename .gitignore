@@ -1,5 +1,4 @@
-*.sh
-*.lock
+# Ignore node_modules
 dist/
 .vscode
 temp/
