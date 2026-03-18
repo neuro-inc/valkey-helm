@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import ConfigDict, Field
 
+from apolo_app_types import ServiceAPI
 from apolo_app_types.helm.utils.storage import get_app_data_files_relative_path_url
 from apolo_app_types.protocols.common import (
     AbstractAppFieldType,
@@ -14,6 +15,7 @@ from apolo_app_types.protocols.common import (
     SchemaExtraMetadata,
 )
 from apolo_app_types.protocols.common.ingress import BasicNetworkingConfig
+from apolo_app_types.protocols.common.networking import WebApp
 
 
 class ReplicaCount(AbstractAppFieldType):
@@ -217,4 +219,12 @@ class ValkeyAppInputs(AppInputs):
 
 
 class ValkeyAppOutputs(AppOutputs):
-    pass
+    """Outputs produced by Valkey app output processor.
+
+    Add `uri` field so outputs serializers include the generated Redis/Valkey URI.
+    """
+
+    uri: str | None = Field(default=None)
+    # Expose app_url for consumers that expect internal/external URLs. Keys
+    # will be present even if values are None.
+    app_url: ServiceAPI[WebApp] | None = Field(default=None)

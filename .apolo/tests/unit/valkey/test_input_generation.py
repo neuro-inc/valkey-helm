@@ -62,7 +62,6 @@ async def test_valkey_values_generation(
     assert "image" in helm_params
     assert "auth" in helm_params
     assert "extraEnv" in helm_params
-    assert "secret" in helm_params
 
     # Check that application label is correct
     assert helm_params["labels"] == {"application": "valkey"}
@@ -193,7 +192,6 @@ async def test_persistence_none_with_sqlite(apolo_client, mock_get_preset_cpu):
     assert "image" in helm_params
     assert "auth" in helm_params
     assert "extraEnv" in helm_params
-    assert "secret" in helm_params
 
 
 async def test_custom_persistence_path_with_sqlite(apolo_client, mock_get_preset_cpu):
@@ -233,4 +231,3 @@ async def test_custom_persistence_path_with_sqlite(apolo_client, mock_get_preset
     assert "image" in helm_params
     assert "auth" in helm_params
     assert "extraEnv" in helm_params
-    assert "secret" in helm_params

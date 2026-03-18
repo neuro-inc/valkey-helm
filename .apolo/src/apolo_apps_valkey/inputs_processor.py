@@ -231,6 +231,4 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
         )
         helm_values["extraEnv"] = extra_env
 
-        helm_values["secret"] = {"n8n": {"encryption_key": ""}}
-
         return helm_values
