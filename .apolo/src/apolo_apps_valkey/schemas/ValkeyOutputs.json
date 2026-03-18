@@ -1,0 +1,52 @@
+{
+  "$defs": {
+    "ValkeyCredentials": {
+      "description": "Connection credentials for Valkey cluster.",
+      "properties": {
+        "connection_string": {
+          "title": "Connection String",
+          "type": "object"
+        },
+        "host": {
+          "title": "Host",
+          "type": "string"
+        },
+        "password": {
+          "default": null,
+          "nullable": true,
+          "title": "Password",
+          "type": "object"
+        },
+        "port": {
+          "default": 6379,
+          "title": "Port",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "host",
+        "port",
+        "connection_string"
+      ],
+      "title": "Valkey Credentials",
+      "type": "object"
+    }
+  },
+  "description": "Output configuration for Valkey cluster",
+  "properties": {
+    "valkey_credentials": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ValkeyCredentials"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Valkey Credentials"
+    }
+  },
+  "title": "ValkeyOutputs",
+  "type": "object"
+}

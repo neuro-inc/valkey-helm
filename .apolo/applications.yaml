@@ -1,0 +1,37 @@
+- app_type: valkey
+  name: valkey
+  title: Valkey
+  install_type: workflow
+  helm_path: valkey
+  app_package_name: apolo_apps_valkey
+  inputs:
+    schema_path: .apolo/src/apolo_apps_valkey/schemas/ValkeyAppInputs.json
+    types_name: ValkeyAppInputs
+    processor: ValkeyAppChartValueProcessor
+    image: ghcr.io/neuro-inc/valkey-hook
+  outputs:
+    schema_path: .apolo/src/apolo_apps_valkey/schemas/ValkeyAppOutputs.json
+    types_name: ValkeyAppOutputs
+    processor: ValkeyAppOutputProcessor
+    image: ghcr.io/neuro-inc/valkey-hook
+  short_description: Deploy high-performance in-memory data store
+  description: |
+    Valkey App allows you to deploy a high-performance in-memory data store that can be used as a
+    database, cache, and message broker. It supports various data structures and provides
+    exceptional speed and reliability for your applications.
+  pub_date: "2025-11-07T00:00:00+00:00"
+  changelog:
+    file: ./CHANGELOG.md
+  tags: ["Valkey", "Redis", "Cache", "In-Memory"]
+  logo: "https://storage.googleapis.com/development-421920-assets/app-logos/valkey.svg"
+  assets:
+    - type: image
+      url: "https://storage.googleapis.com/development-421920-assets/app-logos/valkey.svg"
+
+  urls:
+    - name: Valkey Apolo Documentation
+      type: documentation
+      url: https://docs.apolo.us/index/apolo-console/apps/installable-apps/available-apps/valkey
+    - name: Valkey Documentation
+      type: documentation
+      url: https://valkey.io/

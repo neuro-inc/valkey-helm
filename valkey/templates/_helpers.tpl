@@ -187,4 +187,3 @@ Validate replica authentication configuration
   {{- end }}
 {{- end }}
 {{- end -}}
-

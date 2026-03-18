@@ -21,8 +21,3 @@
 .idea/
 *.tmproj
 .vscode/
-
-.github/
-
-# Unit tests (only ignore root-level tests/, not templates/tests/)
-/tests/

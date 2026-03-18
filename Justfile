@@ -27,4 +27,3 @@ package:
 # Run all validations
 validate: lint test
     @echo "=== All validations passed ==="
-

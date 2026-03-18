@@ -1,0 +1,123 @@
+{
+  "$defs": {
+    "Preset": {
+      "properties": {
+        "credits_per_hour": {
+          "description": "CPU credits per hour",
+          "title": "Credits Per Hour",
+          "type": "number"
+        },
+        "gpu": {
+          "default": 0,
+          "description": "Number of GPUs",
+          "title": "Gpu",
+          "type": "integer"
+        },
+        "gpu_model": {
+          "description": "GPU model name",
+          "nullable": true,
+          "title": "Gpu Model",
+          "type": "string"
+        },
+        "memory_mb": {
+          "description": "Amount of memory (MB)",
+          "title": "Memory Mb",
+          "type": "integer"
+        },
+        "millicpus": {
+          "description": "Number of millicpus",
+          "title": "Millicpus",
+          "type": "integer"
+        },
+        "name": {
+          "description": "Preset name",
+          "title": "Name",
+          "type": "string"
+        },
+        "resource_pool_types": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Resource Pool Types",
+          "type": "array"
+        },
+        "storage_gb": {
+          "description": "Amount of storage (GB)",
+          "title": "Storage Gb",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "name",
+        "credits_per_hour",
+        "millicpus",
+        "memory_mb",
+        "storage_gb"
+      ],
+      "title": "Preset",
+      "type": "object"
+    },
+    "ValkeySupportedVersions": {
+      "enum": [
+        "7.0",
+        "7.2"
+      ],
+      "title": "ValkeySupportedVersions",
+      "type": "string"
+    },
+    "ValkeyClusterConfig": {
+      "description": "Configuration for Valkey cluster.",
+      "properties": {
+        "persistence_enabled": {
+          "default": true,
+          "title": "Enable persistence",
+          "type": "boolean"
+        },
+        "replicas": {
+          "description": "Set number of replicas for the Valkey cluster.",
+          "exclusiveMinimum": 0,
+          "title": "Valkey replicas",
+          "type": "integer"
+        },
+        "storage_size": {
+          "description": "Set size of the Valkey storage disk (in GB).",
+          "exclusiveMinimum": 0,
+          "title": "Valkey storage size",
+          "type": "integer"
+        },
+        "valkey_version": {
+          "$ref": "#/$defs/ValkeySupportedVersions",
+          "default": "7.2",
+          "description": "Set version of the Valkey server to use.",
+          "title": "Valkey version"
+        }
+      },
+      "required": [
+        "valkey_version",
+        "replicas",
+        "storage_size",
+        "persistence_enabled"
+      ],
+      "title": "Valkey Cluster Configuration",
+      "type": "object"
+    }
+  },
+  "description": "Input configuration for Valkey cluster deployment",
+  "properties": {
+    "preset": {
+      "$ref": "#/$defs/Preset",
+      "title": "Preset"
+    },
+    "valkey_config": {
+      "$ref": "#/$defs/ValkeyClusterConfig",
+      "title": "Valkey Cluster Configuration"
+    }
+  },
+  "required": [
+    "preset",
+    "valkey_config"
+  ],
+  "title": "ValkeyInputs",
+  "type": "object"
+}
