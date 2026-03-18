@@ -19,7 +19,7 @@
     Valkey App allows you to deploy a high-performance in-memory data store that can be used as a
     database, cache, and message broker. It supports various data structures and provides
     exceptional speed and reliability for your applications.
-  pub_date: "2025-11-07T00:00:00+00:00"
+  pub_date: "2026-03-01T00:00:00+00:00"
   changelog:
     file: ./CHANGELOG.md
   tags: ["Valkey", "Redis", "Cache", "In-Memory"]

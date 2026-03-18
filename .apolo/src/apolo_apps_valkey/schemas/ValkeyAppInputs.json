@@ -212,7 +212,9 @@
     "MainApplicationConfig": {
       "properties": {
         "preset": {
-          "$ref": "#/$defs/Preset"
+          "$ref": "#/$defs/Preset",
+          "x-description": "Select the resource preset used for the Valkey instance. Minimal resources: 0.1 CPU cores, 128 MiB memory.",
+          "x-title": "Main Application preset"
         },
         "replica_scaling": {
           "anyOf": [
@@ -445,7 +447,9 @@
     "WebhookConfig": {
       "properties": {
         "preset": {
-          "$ref": "#/$defs/Preset"
+          "$ref": "#/$defs/Preset",
+          "x-description": "Select the resource preset used for the Webhook instance. Minimal resources: 0.1 CPU cores, 128 MiB memory.",
+          "x-title": "Webhook preset"
         },
         "replicas": {
           "title": "Replicas",
@@ -468,7 +472,9 @@
     "WorkerConfig": {
       "properties": {
         "preset": {
-          "$ref": "#/$defs/Preset"
+          "$ref": "#/$defs/Preset",
+          "x-description": "Select the resource preset used for the Worker instance. Minimal resources: 0.2 CPU cores, 128 MiB memory.",
+          "x-title": "Worker preset"
         },
         "replicas": {
           "title": "Replicas",

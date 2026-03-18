@@ -118,6 +118,7 @@
       "x-type": "OpenAICompatibleEmbeddingsRestAPI"
     }
   },
+  "description": "Outputs produced by Valkey app output processor.\n\nAdd `uri` field so outputs serializers include the generated Redis/Valkey URI.",
   "properties": {
     "app_url": {
       "anyOf": [
@@ -128,9 +129,19 @@
           "type": "null"
         }
       ],
+      "default": null
+    },
+    "uri": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
       "default": null,
-      "description": "The main application URL for accessing the service. This is the primary endpoint users should use to access the application.",
-      "title": "Application URL"
+      "title": "Uri"
     }
   },
   "title": "ValkeyAppOutputs",
