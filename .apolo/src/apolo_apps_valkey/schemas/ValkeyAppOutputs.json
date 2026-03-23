@@ -1,5 +1,68 @@
 {
   "$defs": {
+    "ApoloSecret": {
+      "properties": {
+        "key": {
+          "title": "Key",
+          "type": "string"
+        }
+      },
+      "required": [
+        "key"
+      ],
+      "title": "ApoloSecret",
+      "type": "object",
+      "x-description": "Apolo Secret Configuration.",
+      "x-is-advanced-field": false,
+      "x-is-configurable": true,
+      "x-meta-type": "inline",
+      "x-title": "Secret",
+      "x-type": "ApoloSecret"
+    },
+    "RESPApi": {
+      "description": "Model for a RESP (Redis-like) API endpoint.\n\nAttributes:\n    scheme: URL scheme (defaults to redis://)\n    host: hostname or service name\n    port: TCP port number\n    base_path: optional path appended to the URI\n    user: optional username for credentials\n    password: an ApoloSecret (typing-only); see module docstring above",
+      "properties": {
+        "scheme": {
+          "default": "redis://",
+          "title": "Scheme",
+          "type": "string"
+        },
+        "host": {
+          "title": "Host",
+          "type": "string"
+        },
+        "port": {
+          "title": "Port",
+          "type": "integer"
+        },
+        "base_path": {
+          "default": "",
+          "title": "Base Path",
+          "type": "string"
+        },
+        "user": {
+          "default": "",
+          "title": "User",
+          "type": "string"
+        },
+        "password": {
+          "$ref": "#/$defs/ApoloSecret"
+        }
+      },
+      "required": [
+        "host",
+        "port",
+        "password"
+      ],
+      "title": "RESPApi",
+      "type": "object",
+      "x-description": "",
+      "x-is-advanced-field": false,
+      "x-is-configurable": true,
+      "x-meta-type": "inline",
+      "x-title": "",
+      "x-type": "ValkeyConnectionInfo"
+    },
     "ServiceAPI_WebApp_": {
       "properties": {
         "internal_url": {
@@ -43,6 +106,39 @@
       "x-meta-type": "inline",
       "x-title": "Service APIs",
       "x-type": "ServiceAPI[GrpcAPI]"
+    },
+    "ValkeyConnectionInfo": {
+      "properties": {
+        "host": {
+          "title": "Host",
+          "type": "string"
+        },
+        "port": {
+          "title": "Port",
+          "type": "integer"
+        },
+        "user": {
+          "default": "",
+          "title": "User",
+          "type": "string"
+        },
+        "password": {
+          "$ref": "#/$defs/ApoloSecret"
+        }
+      },
+      "required": [
+        "host",
+        "port",
+        "password"
+      ],
+      "title": "ValkeyConnectionInfo",
+      "type": "object",
+      "x-description": "",
+      "x-is-advanced-field": false,
+      "x-is-configurable": true,
+      "x-meta-type": "inline",
+      "x-title": "",
+      "x-type": "ValkeyConnectionInfo"
     },
     "WebApp": {
       "properties": {
@@ -129,19 +225,42 @@
           "type": "null"
         }
       ],
-      "default": null
+      "default": null,
+      "description": "The main application URL for accessing the service. This is the primary endpoint users should use to access the application.",
+      "title": "Application URL"
     },
-    "uri": {
+    "redis": {
       "anyOf": [
         {
-          "type": "string"
+          "$ref": "#/$defs/RESPApi"
         },
         {
           "type": "null"
         }
       ],
-      "default": null,
-      "title": "Uri"
+      "default": null
+    },
+    "internal_connection": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ValkeyConnectionInfo"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "external_connection": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ValkeyConnectionInfo"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "title": "ValkeyAppOutputs",

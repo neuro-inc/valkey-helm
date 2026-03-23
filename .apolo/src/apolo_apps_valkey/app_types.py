@@ -3,19 +3,18 @@ from typing import Literal
 
 from pydantic import ConfigDict, Field
 
-from apolo_app_types import ServiceAPI
 from apolo_app_types.helm.utils.storage import get_app_data_files_relative_path_url
 from apolo_app_types.protocols.common import (
     AbstractAppFieldType,
     ApoloFilesPath,
+    ApoloSecret,
     AppInputs,
     AppOutputs,
-    AutoscalingHPA,
     Preset,
     SchemaExtraMetadata,
 )
 from apolo_app_types.protocols.common.ingress import BasicNetworkingConfig
-from apolo_app_types.protocols.common.networking import WebApp
+from apolo_apps_valkey.resp_api import RESPApi
 
 
 class ReplicaCount(AbstractAppFieldType):
@@ -85,59 +84,7 @@ class MainApplicationConfig(AbstractAppFieldType):
             "Minimal resources: 0.1 CPU cores, 128 MiB memory.",
         ).as_json_schema_extra(),
     )
-    replica_scaling: ReplicaCount | AutoscalingHPA = Field(
-        default=ReplicaCount(replicas=1),
-        json_schema_extra=SchemaExtraMetadata(
-            title="Replicas",
-            description="Choose a fixed number of replicas or enable autoscaling.",
-        ).as_json_schema_extra(),
-    )
     persistence: ValkeyVolume | None = Field(default=ValkeyVolume())
-
-
-class WorkerConfig(AbstractAppFieldType):
-    model_config = ConfigDict(
-        protected_namespaces=(),
-        json_schema_extra=SchemaExtraMetadata(
-            title="Worker Configuration",
-            description="Configure workers for distributed background job "
-            "processing. Workers handle workflow execution tasks, enabling "
-            "the main application to remain responsive by offloading "
-            "computational work.",
-        ).as_json_schema_extra(),
-    )
-    preset: Preset = Field(
-        ...,
-        json_schema_extra=SchemaExtraMetadata(
-            title="Worker preset",
-            description="Select the resource preset used for the "
-            "Worker instance. "
-            "Minimal resources: 0.2 CPU cores, 128 MiB memory.",
-        ).as_json_schema_extra(),
-    )
-    replicas: int = Field()
-
-
-class WebhookConfig(AbstractAppFieldType):
-    model_config = ConfigDict(
-        protected_namespaces=(),
-        json_schema_extra=SchemaExtraMetadata(
-            title="Webhook Configuration",
-            description="Configure dedicated webhook processing instances. "
-            "Separating webhook handling allows dedicated resource allocation "
-            "for webhook traffic without competing with core workflow execution.",
-        ).as_json_schema_extra(),
-    )
-    preset: Preset = Field(
-        ...,
-        json_schema_extra=SchemaExtraMetadata(
-            title="Webhook preset",
-            description="Select the resource preset used for the "
-            "Webhook instance. "
-            "Minimal resources: 0.1 CPU cores, 128 MiB memory.",
-        ).as_json_schema_extra(),
-    )
-    replicas: int = Field()
 
 
 class ValkeyArchitectureTypes(enum.StrEnum):
@@ -176,15 +123,8 @@ class ValkeyReplicationArchitecture(ValkeyArchitecture):
     replica_preset: Preset = Field(
         ...,
         json_schema_extra=SchemaExtraMetadata(
-            title="Replica Preset", description=""
-        ).as_json_schema_extra(),
-    )
-    autoscaling: AutoscalingHPA | None = Field(
-        default=None,
-        json_schema_extra=SchemaExtraMetadata(
-            title="Autoscaling",
-            description="Enable Autoscaling and configure it.",
-            is_advanced_field=True,
+            title="Replica Preset",
+            description="Select the resource preset used for Valkey replica instances.",
         ).as_json_schema_extra(),
     )
 
@@ -196,17 +136,31 @@ class ValkeyConfig(AbstractAppFieldType):
     model_config = ConfigDict(
         protected_namespaces=(),
         json_schema_extra=SchemaExtraMetadata(
-            title="Valkey/Redis Configuration", description=""
+            title="Valkey/Redis Configuration",
+            description=(
+                "Top-level Valkey configuration. Configure the main application "
+                "preset and deployment architecture (standalone or replication). "
+                "When using replication, set replica presets and persistence "
+                "options. These settings are used to generate the Helm values "
+                "for deploying Valkey."
+            ),
         ).as_json_schema_extra(),
     )
-    preset: Preset
+    preset: Preset = Field(
+        ...,
+        json_schema_extra=SchemaExtraMetadata(
+            title="Main Application preset",
+            description="Select the resource preset used for the "
+            "Valkey instance. "
+            "Minimal resources: 0.1 CPU cores, 128 MiB memory.",
+        ).as_json_schema_extra(),
+    )
+    persistence: ValkeyVolume | None = Field(default=ValkeyVolume())
     architecture: ValkeyArchs
 
 
 class ValkeyAppInputs(AppInputs):
     main_app_config: MainApplicationConfig
-    worker_config: WorkerConfig
-    webhook_config: WebhookConfig
     valkey_config: ValkeyConfig
     networking: BasicNetworkingConfig = Field(
         default_factory=BasicNetworkingConfig,
@@ -218,13 +172,24 @@ class ValkeyAppInputs(AppInputs):
     )
 
 
+class ValkeyConnectionInfo(AbstractAppFieldType):
+    host: str
+    port: int
+    user: str = ""
+    password: ApoloSecret
+
+    @property
+    def uri(self) -> str:
+        creds = f"{self.user}:{self.password}" if self.user else f":{self.password}"
+        return f"redis://{creds}@{self.host}:{self.port}"
+
+
 class ValkeyAppOutputs(AppOutputs):
     """Outputs produced by Valkey app output processor.
 
     Add `uri` field so outputs serializers include the generated Redis/Valkey URI.
     """
 
-    uri: str | None = Field(default=None)
-    # Expose app_url for consumers that expect internal/external URLs. Keys
-    # will be present even if values are None.
-    app_url: ServiceAPI[WebApp] | None = Field(default=None)
+    redis: RESPApi | None = None
+    internal_connection: ValkeyConnectionInfo | None = None
+    external_connection: ValkeyConnectionInfo | None = None

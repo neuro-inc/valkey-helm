@@ -68,71 +68,6 @@
       "x-title": "Authentication Ingress Middleware",
       "x-type": "AuthIngressMiddleware"
     },
-    "AutoscalingHPA": {
-      "properties": {
-        "min_replicas": {
-          "default": 1,
-          "minimum": 0,
-          "title": "Min Replicas",
-          "type": "integer",
-          "x-description": "Set the minimum number of replicas for your deployment.",
-          "x-is-advanced-field": false,
-          "x-is-configurable": true,
-          "x-meta-type": "inline",
-          "x-title": "Minimum Replicas"
-        },
-        "max_replicas": {
-          "default": 5,
-          "exclusiveMinimum": 0,
-          "title": "Max Replicas",
-          "type": "integer",
-          "x-description": "Limit the maximum number of replicas for your deployment.",
-          "x-is-advanced-field": false,
-          "x-is-configurable": true,
-          "x-meta-type": "inline",
-          "x-title": "Maximum Replicas"
-        },
-        "target_cpu_utilization_percentage": {
-          "default": 80,
-          "exclusiveMinimum": 0,
-          "maximum": 100,
-          "title": "Target Cpu Utilization Percentage",
-          "type": "integer",
-          "x-description": "Choose target CPU utilization percentage for autoscaling.",
-          "x-is-advanced-field": false,
-          "x-is-configurable": true,
-          "x-meta-type": "inline",
-          "x-title": "Target CPU Utilization Percentage"
-        },
-        "target_memory_utilization_percentage": {
-          "anyOf": [
-            {
-              "exclusiveMinimum": 0,
-              "maximum": 100,
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Target Memory Utilization Percentage",
-          "x-description": "Choose target memory utilization percentage for autoscaling.",
-          "x-is-advanced-field": false,
-          "x-is-configurable": true,
-          "x-meta-type": "inline",
-          "x-title": "Target Memory Utilization Percentage"
-        }
-      },
-      "title": "AutoscalingHPA",
-      "type": "object",
-      "x-description": "Autoscaling configuration for Horizontal Pod Autoscaler.",
-      "x-is-advanced-field": false,
-      "x-is-configurable": true,
-      "x-meta-type": "inline",
-      "x-title": "Autoscaling HPA",
-      "x-type": "AutoscalingHPA"
-    },
     "BasicNetworkingConfig": {
       "description": "Common networking configuration for applications.",
       "properties": {
@@ -216,26 +151,6 @@
           "x-description": "Select the resource preset used for the Valkey instance. Minimal resources: 0.1 CPU cores, 128 MiB memory.",
           "x-title": "Main Application preset"
         },
-        "replica_scaling": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ReplicaCount"
-            },
-            {
-              "$ref": "#/$defs/AutoscalingHPA"
-            }
-          ],
-          "default": {
-            "replicas": 1,
-            "__type__": "ReplicaCount"
-          },
-          "title": "Replica Scaling",
-          "x-description": "Choose a fixed number of replicas or enable autoscaling.",
-          "x-is-advanced-field": false,
-          "x-is-configurable": true,
-          "x-meta-type": "inline",
-          "x-title": "Replicas"
-        },
         "persistence": {
           "anyOf": [
             {
@@ -309,32 +224,29 @@
       "x-title": "Resource Preset",
       "x-type": "Preset"
     },
-    "ReplicaCount": {
-      "properties": {
-        "replicas": {
-          "default": 1,
-          "title": "Replicas",
-          "type": "integer",
-          "x-description": "Number of replicas created for main application.",
-          "x-is-advanced-field": false,
-          "x-is-configurable": true,
-          "x-meta-type": "inline",
-          "x-title": "Replica Count"
-        }
-      },
-      "title": "ReplicaCount",
-      "type": "object",
-      "x-description": "This option creates a fixed number of replicas with no autoscaling enabled.",
-      "x-is-advanced-field": false,
-      "x-is-configurable": true,
-      "x-meta-type": "inline",
-      "x-title": "Fixed Replica Count",
-      "x-type": "ReplicaCount"
-    },
     "ValkeyConfig": {
       "properties": {
         "preset": {
-          "$ref": "#/$defs/Preset"
+          "$ref": "#/$defs/Preset",
+          "x-description": "Select the resource preset used for the Valkey instance. Minimal resources: 0.1 CPU cores, 128 MiB memory.",
+          "x-title": "Main Application preset"
+        },
+        "persistence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ValkeyVolume"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": {
+            "storage_mount": {
+              "__type__": "ApoloFilesPath",
+              "path": "storage:.apps/valkey/valkey-app"
+            },
+            "__type__": "ValkeyVolume"
+          }
         },
         "architecture": {
           "anyOf": [
@@ -354,7 +266,7 @@
       ],
       "title": "ValkeyConfig",
       "type": "object",
-      "x-description": "",
+      "x-description": "Top-level Valkey configuration. Configure the main application preset and deployment architecture (standalone or replication). When using replication, set replica presets and persistence options. These settings are used to generate the Helm values for deploying Valkey.",
       "x-is-advanced-field": false,
       "x-is-configurable": true,
       "x-meta-type": "inline",
@@ -370,24 +282,8 @@
         },
         "replica_preset": {
           "$ref": "#/$defs/Preset",
-          "x-description": "",
+          "x-description": "Select the resource preset used for Valkey replica instances.",
           "x-title": "Replica Preset"
-        },
-        "autoscaling": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AutoscalingHPA"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "x-description": "Enable Autoscaling and configure it.",
-          "x-is-advanced-field": true,
-          "x-is-configurable": true,
-          "x-meta-type": "inline",
-          "x-title": "Autoscaling"
         }
       },
       "required": [
@@ -443,67 +339,11 @@
       "x-meta-type": "inline",
       "x-title": "Persistent Storage",
       "x-type": "ValkeyVolume"
-    },
-    "WebhookConfig": {
-      "properties": {
-        "preset": {
-          "$ref": "#/$defs/Preset",
-          "x-description": "Select the resource preset used for the Webhook instance. Minimal resources: 0.1 CPU cores, 128 MiB memory.",
-          "x-title": "Webhook preset"
-        },
-        "replicas": {
-          "title": "Replicas",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "preset",
-        "replicas"
-      ],
-      "title": "WebhookConfig",
-      "type": "object",
-      "x-description": "Configure dedicated webhook processing instances. Separating webhook handling allows dedicated resource allocation for webhook traffic without competing with core workflow execution.",
-      "x-is-advanced-field": false,
-      "x-is-configurable": true,
-      "x-meta-type": "inline",
-      "x-title": "Webhook Configuration",
-      "x-type": "WebhookConfig"
-    },
-    "WorkerConfig": {
-      "properties": {
-        "preset": {
-          "$ref": "#/$defs/Preset",
-          "x-description": "Select the resource preset used for the Worker instance. Minimal resources: 0.2 CPU cores, 128 MiB memory.",
-          "x-title": "Worker preset"
-        },
-        "replicas": {
-          "title": "Replicas",
-          "type": "integer"
-        }
-      },
-      "required": [
-        "preset",
-        "replicas"
-      ],
-      "title": "WorkerConfig",
-      "type": "object",
-      "x-description": "Configure workers for distributed background job processing. Workers handle workflow execution tasks, enabling the main application to remain responsive by offloading computational work.",
-      "x-is-advanced-field": false,
-      "x-is-configurable": true,
-      "x-meta-type": "inline",
-      "x-title": "Worker Configuration",
-      "x-type": "WorkerConfig"
     }
   },
   "properties": {
     "main_app_config": {
       "$ref": "#/$defs/MainApplicationConfig"
-    },
-    "worker_config": {
-      "$ref": "#/$defs/WorkerConfig"
-    },
-    "webhook_config": {
-      "$ref": "#/$defs/WebhookConfig"
     },
     "valkey_config": {
       "$ref": "#/$defs/ValkeyConfig"
@@ -515,8 +355,6 @@
   },
   "required": [
     "main_app_config",
-    "worker_config",
-    "webhook_config",
     "valkey_config"
   ],
   "title": "ValkeyAppInputs",
