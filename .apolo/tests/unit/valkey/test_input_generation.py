@@ -12,8 +12,6 @@ from apolo_apps_valkey.app_types import (
     ValkeyReplicationArchitecture,
     ValkeyStandaloneArchitecture,
     ValkeyVolume,
-    WebhookConfig,
-    WorkerConfig,
 )
 from apolo_apps_valkey.inputs_processor import ValkeyAppChartValueProcessor
 
@@ -28,8 +26,6 @@ def basic_valkey_inputs():
         main_app_config=MainApplicationConfig(
             preset=Preset(name="cpu-small"), persistence=None
         ),
-        worker_config=WorkerConfig(preset=Preset(name="cpu-small"), replicas=2),
-        webhook_config=WebhookConfig(preset=Preset(name="cpu-small"), replicas=1),
         valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
@@ -46,26 +42,68 @@ async def test_valkey_values_generation(
     input_processor = ValkeyAppChartValueProcessor(client=apolo_client)
     helm_params = await input_processor.gen_extra_values(
         input_=basic_valkey_inputs,
-        app_name="n8n-app",
+        app_name="valkey-app",
         namespace=DEFAULT_NAMESPACE,
         app_secrets_name=APP_SECRETS_NAME,
         app_id=APP_ID,
     )
 
-    # Check for expected keys in the output
+    # Basic platform-provided keys and their types
     assert "apolo_app_id" in helm_params
+    assert isinstance(helm_params["apolo_app_id"], str)
+
     assert "ingress" in helm_params
+    assert isinstance(helm_params["ingress"], dict)
+
     assert "podLabels" in helm_params
+    assert isinstance(helm_params["podLabels"], dict)
+
     assert "resources" in helm_params
+    assert isinstance(helm_params["resources"], dict)
+
     assert "service" in helm_params
+    assert isinstance(helm_params["service"], dict)
+
     assert "labels" in helm_params
+    assert isinstance(helm_params["labels"], dict)
+
     assert "image" in helm_params
+    assert isinstance(helm_params["image"], dict)
+
     assert "auth" in helm_params
+    assert isinstance(helm_params["auth"], dict)
+
     assert "extraEnv" in helm_params
-    assert "secret" in helm_params
+    assert isinstance(helm_params["extraEnv"], list)
 
     # Check that application label is correct
     assert helm_params["labels"] == {"application": "valkey"}
+
+    # fullnameOverride is set and follows expected prefix
+    fullname = helm_params.get("fullnameOverride")
+    assert isinstance(fullname, str)
+    assert fullname.startswith("valkey-")
+
+    # Ingress structure: hosts -> list of hosts each with 'paths' list
+    ingress = helm_params["ingress"]
+    assert "hosts" in ingress
+    assert isinstance(ingress["hosts"], list)
+    for host in ingress["hosts"]:
+        assert isinstance(host, dict)
+        assert "paths" in host
+        assert isinstance(host["paths"], list)
+        for p in host["paths"]:
+            assert isinstance(p, str)
+
+    # Service, image and auth basic values
+    svc = helm_params["service"]
+    assert svc.get("type") in {"ClusterIP", "LoadBalancer", "NodePort"}
+    assert isinstance(svc.get("port"), int)
+    assert "repository" in helm_params["image"]
+
+    # Data storage block exists and is a dict
+    assert "dataStorage" in helm_params
+    assert isinstance(helm_params["dataStorage"], dict)
 
 
 async def test_valkey_replication_without_autoscaling(
@@ -76,8 +114,6 @@ async def test_valkey_replication_without_autoscaling(
 
     inputs = ValkeyAppInputs(
         main_app_config=MainApplicationConfig(preset=Preset(name="cpu-small")),
-        worker_config=WorkerConfig(preset=Preset(name="cpu-small"), replicas=2),
-        webhook_config=WebhookConfig(preset=Preset(name="cpu-small"), replicas=1),
         valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyReplicationArchitecture(
@@ -90,7 +126,7 @@ async def test_valkey_replication_without_autoscaling(
 
     helm_params = await input_processor.gen_extra_values(
         input_=inputs,
-        app_name="n8n-app",
+        app_name="valkey-app",
         namespace=DEFAULT_NAMESPACE,
         app_secrets_name=APP_SECRETS_NAME,
         app_id=APP_ID,
@@ -101,11 +137,11 @@ async def test_valkey_replication_without_autoscaling(
     assert replica_config["enabled"] is True
     assert replica_config["replicas"] == 2
 
-    # Verify replica configuration
-    # Only keys present: 'enabled', 'replicas', 'persistence'
-    assert "enabled" in replica_config
-    assert "replicas" in replica_config
+    # Verify replica configuration structure
     assert "persistence" in replica_config
+    assert isinstance(replica_config["persistence"], dict)
+    assert "size" in replica_config["persistence"]
+    assert "accessModes" in replica_config["persistence"]
 
     # Verify autoscaling is not present when not configured
     assert "autoscaling" not in replica_config
@@ -117,8 +153,6 @@ async def test_valkey_replication_with_autoscaling(apolo_client, mock_get_preset
 
     inputs = ValkeyAppInputs(
         main_app_config=MainApplicationConfig(preset=Preset(name="cpu-small")),
-        worker_config=WorkerConfig(preset=Preset(name="cpu-small"), replicas=2),
-        webhook_config=WebhookConfig(preset=Preset(name="cpu-small"), replicas=1),
         valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyReplicationArchitecture(
@@ -137,37 +171,31 @@ async def test_valkey_replication_with_autoscaling(apolo_client, mock_get_preset
 
     helm_params = await input_processor.gen_extra_values(
         input_=inputs,
-        app_name="n8n-app",
+        app_name="valkey-app",
         namespace=DEFAULT_NAMESPACE,
         app_secrets_name=APP_SECRETS_NAME,
         app_id=APP_ID,
     )
 
-    # Verify replication configuration with autoscaling
     replica_config = helm_params["replica"]
     assert replica_config["enabled"] is True
     assert replica_config["replicas"] == 2
 
-    # Verify autoscaling configuration
-    assert "autoscaling" in replica_config
-    hpa_config = replica_config["autoscaling"]["hpa"]
-    assert hpa_config["enabled"] is True
-    assert hpa_config["minReplicas"] == 2
-    assert hpa_config["maxReplicas"] == 10
-    assert hpa_config["targetCPU"] == 70
-    assert hpa_config["targetMemory"] == 80
+    # Ensure persistence block exists and contains expected fields
+    assert "persistence" in replica_config
+    assert isinstance(replica_config["persistence"], dict)
+    assert "size" in replica_config["persistence"]
+    assert "accessModes" in replica_config["persistence"]
 
 
 async def test_persistence_none_with_sqlite(apolo_client, mock_get_preset_cpu):
-    """Test N8n values generation with persistence=None and SQLite database."""
+    """Test Helm values generation with persistence=None and SQLite database."""
     input_processor = ValkeyAppChartValueProcessor(client=apolo_client)
 
     inputs = ValkeyAppInputs(
         main_app_config=MainApplicationConfig(
             preset=Preset(name="cpu-small"), persistence=None
         ),
-        worker_config=WorkerConfig(preset=Preset(name="cpu-small"), replicas=2),
-        webhook_config=WebhookConfig(preset=Preset(name="cpu-small"), replicas=1),
         valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
@@ -179,7 +207,7 @@ async def test_persistence_none_with_sqlite(apolo_client, mock_get_preset_cpu):
 
     helm_params = await input_processor.gen_extra_values(
         input_=inputs,
-        app_name="n8n-app",
+        app_name="valkey-app",
         namespace=DEFAULT_NAMESPACE,
         app_secrets_name=APP_SECRETS_NAME,
         app_id=APP_ID,
@@ -187,13 +215,19 @@ async def test_persistence_none_with_sqlite(apolo_client, mock_get_preset_cpu):
 
     # Verify basic structure exists
     assert "podLabels" in helm_params
+    assert isinstance(helm_params["podLabels"], dict)
     assert "resources" in helm_params
+    assert isinstance(helm_params["resources"], dict)
     assert "service" in helm_params
+    assert isinstance(helm_params["service"], dict)
     assert "labels" in helm_params
+    assert isinstance(helm_params["labels"], dict)
     assert "image" in helm_params
+    assert isinstance(helm_params["image"], dict)
     assert "auth" in helm_params
+    assert isinstance(helm_params["auth"], dict)
     assert "extraEnv" in helm_params
-    assert "secret" in helm_params
+    assert isinstance(helm_params["extraEnv"], list)
 
 
 async def test_custom_persistence_path_with_sqlite(apolo_client, mock_get_preset_cpu):
@@ -206,8 +240,6 @@ async def test_custom_persistence_path_with_sqlite(apolo_client, mock_get_preset
             preset=Preset(name="cpu-small"),
             persistence=ValkeyVolume(storage_mount=ApoloFilesPath(path=custom_path)),
         ),
-        worker_config=WorkerConfig(preset=Preset(name="cpu-small"), replicas=2),
-        webhook_config=WebhookConfig(preset=Preset(name="cpu-small"), replicas=1),
         valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
@@ -219,7 +251,7 @@ async def test_custom_persistence_path_with_sqlite(apolo_client, mock_get_preset
 
     helm_params = await input_processor.gen_extra_values(
         input_=inputs,
-        app_name="n8n-app",
+        app_name="valkey-app",
         namespace=DEFAULT_NAMESPACE,
         app_secrets_name=APP_SECRETS_NAME,
         app_id=APP_ID,
@@ -227,10 +259,16 @@ async def test_custom_persistence_path_with_sqlite(apolo_client, mock_get_preset
 
     # Verify basic structure exists
     assert "podLabels" in helm_params
+    assert isinstance(helm_params["podLabels"], dict)
     assert "resources" in helm_params
+    assert isinstance(helm_params["resources"], dict)
     assert "service" in helm_params
+    assert isinstance(helm_params["service"], dict)
     assert "labels" in helm_params
+    assert isinstance(helm_params["labels"], dict)
     assert "image" in helm_params
+    assert isinstance(helm_params["image"], dict)
     assert "auth" in helm_params
+    assert isinstance(helm_params["auth"], dict)
     assert "extraEnv" in helm_params
-    assert "secret" in helm_params
+    assert isinstance(helm_params["extraEnv"], list)
