@@ -20,7 +20,6 @@
       "x-type": "ApoloSecret"
     },
     "RESPApi": {
-      "description": "Model for a RESP (Redis-like) API endpoint.\n\nAttributes:\n    scheme: URL scheme (defaults to redis://)\n    host: hostname or service name\n    port: TCP port number\n    base_path: optional path appended to the URI\n    user: optional username for credentials\n    password: an ApoloSecret (typing-only); see module docstring above",
       "properties": {
         "scheme": {
           "default": "redis://",
@@ -46,13 +45,24 @@
           "type": "string"
         },
         "password": {
-          "$ref": "#/$defs/ApoloSecret"
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/$defs/ApoloSecret"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Password"
         }
       },
       "required": [
         "host",
-        "port",
-        "password"
+        "port"
       ],
       "title": "RESPApi",
       "type": "object",

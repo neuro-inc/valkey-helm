@@ -14,7 +14,7 @@ from apolo_app_types.protocols.common import (
     SchemaExtraMetadata,
 )
 from apolo_app_types.protocols.common.ingress import BasicNetworkingConfig
-from apolo_apps_valkey.resp_api import RESPApi
+from apolo_app_types.protocols.resp_api import RESPApi
 
 
 class ReplicaCount(AbstractAppFieldType):
