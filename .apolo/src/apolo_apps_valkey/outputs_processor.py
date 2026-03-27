@@ -4,8 +4,8 @@ from typing import cast
 
 from apolo_app_types.outputs.base import BaseAppOutputsProcessor
 from apolo_app_types.protocols.common import ApoloSecret
+from apolo_app_types.protocols.resp_api import RESPApi
 from apolo_apps_valkey.app_types import ValkeyAppOutputs
-from apolo_apps_valkey.resp_api import RESPApi
 
 
 logger = logging.getLogger(__name__)
@@ -47,12 +47,6 @@ async def get_valkey_outputs(
                 ),
             )
 
-    # Construct the AppOutputs using the correct field names defined in
-    # `apolo_apps_valkey.app_types.ValkeyAppOutputs`.
-    # We map our RESPApi instances to the output fields expected by the
-    # application-level schema. Note: `ApoloSecret` is a typing-only
-    # construct — we pass a plain dict and use `typing.cast` so mypy can
-    # treat it as the proper TypedDict at type-check time.
     return ValkeyAppOutputs(
         internal_connection=internal_api,
         external_connection=external_api,
@@ -72,22 +66,8 @@ class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
         helm_values: dict[str, t.Any],
         app_instance_id: str,
     ) -> dict[str, t.Any]:
-        """Public API used by callers/tests.
-
-        This method ensures a dictionary is always returned (the unit test
-        expects a dict). It delegates to the internal `_generate_outputs`
-        implementation then normalizes the result into a simple dict with
-        a few commonly used keys:
-
-        - "uri": a single connection URI (internal preferred, then external)
-        - "app_url": left as None when no HTTP-like URL is applicable
-        - "raw": the original outputs object for callers that need full
-          access (kept as-is to avoid forcing a particular serialization
-          strategy here)
-        """
         outputs = await self._generate_outputs(helm_values, app_instance_id)
 
-        # Prefer internal connection when building URI, fall back to external
         internal = getattr(outputs, "internal_connection", None)
         external = getattr(outputs, "external_connection", None)
 
