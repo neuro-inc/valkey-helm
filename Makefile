@@ -1,4 +1,4 @@
-IMAGE_NAME ?= valkey
+IMAGE_NAME ?= valkey-hook
 IMAGE_TAG ?= latest
 
 .PHONY: all clean test lint format
