@@ -8,12 +8,12 @@
     schema_path: .apolo/src/apolo_apps_valkey/schemas/ValkeyAppInputs.json
     types_name: ValkeyAppInputs
     processor: ValkeyAppChartValueProcessor
-    image: ghcr.io/neuro-inc/valkey-hook
+    image: ghcr.io/neuro-inc/valkey
   outputs:
     schema_path: .apolo/src/apolo_apps_valkey/schemas/ValkeyAppOutputs.json
     types_name: ValkeyAppOutputs
     processor: ValkeyAppOutputProcessor
-    image: ghcr.io/neuro-inc/valkey-hook
+    image: ghcr.io/neuro-inc/valkey
   short_description: Deploy high-performance in-memory data store
   description: |
     Valkey App allows you to deploy a high-performance in-memory data store that can be used as a
