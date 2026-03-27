@@ -8,7 +8,7 @@ on:
 
 jobs:
   autoupdate:
-    uses: neuro-inc/reuse/.github/workflows/auto-pr.yaml@master
+    uses: neuro-inc/reuse/.github/workflows/auto-pr.yaml@apolo
     with:
       upstream_repository: https://github.com/CrunchyData/postgres-operator-examples
       upstream_branch: "main"
