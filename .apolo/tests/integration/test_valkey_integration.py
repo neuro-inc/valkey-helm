@@ -207,7 +207,7 @@ async def test_helm_template_with_generated_values_standalone(
     assert helm_values["apolo_app_id"] == "test-app-id"
     assert "ingress" in helm_values
     assert helm_values["ingress"]["enabled"] is True
-    assert helm_values["image"]["repository"] == "bitnamilegacy/valkey"
+    assert helm_values["image"]["repository"] == "valkey/valkey"
     assert helm_values["labels"] == {"application": "valkey"}
     assert "service" in helm_values
     assert helm_values["service"]["port"] == 6379

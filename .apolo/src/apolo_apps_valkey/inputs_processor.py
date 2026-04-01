@@ -38,7 +38,7 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
             # other applications.
             "fullnameOverride": f"{FULLNAME_PREFIX}-{app_id[:16]}",
             "global": {"security": {"allowInsecureImages": True}},
-            "image": {"repository": "bitnamilegacy/valkey"},
+            "image": {"repository": "valkey/valkey"},
             "auth": {"enabled": False},
             "architecture": str(config.architecture.architecture_type.value),
             "primary": {},
@@ -141,7 +141,7 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
             helm_values["replica"] = {"enabled": False}
 
         helm_values["image"] = {
-            "repository": "bitnamilegacy/valkey",
+            "repository": "valkey/valkey",
             "pullPolicy": "IfNotPresent",
         }
 
