@@ -20,7 +20,7 @@ tests:
           value: RELEASE-NAME-valkey-connection-secret-replica
       - equal:
           path: spec.template.spec.containers[0].env[1].valueFrom.secretKeyRef.optional
-          value: "true"
+          value: true
       - matchRegex:
           path: spec.template.spec.containers[0].command[2]
           pattern: 'Replica connection secret not found, falling back to primary'

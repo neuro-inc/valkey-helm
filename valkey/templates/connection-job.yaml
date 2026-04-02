@@ -38,7 +38,11 @@ spec:
               redis-cli -u "$URI" PING || (echo "Primary redis PING failed" && exit 1)
 
               # --- Replica check (comma-separated only) ---
-              if [ -n "$CONNECTION_URI_REPLICA" ]; then
+              if [ -z "$CONNECTION_URI_REPLICA" ]; then
+                echo "Replica connection secret not found, falling back to primary"
+              else
+                echo "Using replica connection secret"
+                CONNECTION_URI="$CONNECTION_URI_REPLICA"
                 RAW="$(trim "$CONNECTION_URI_REPLICA")"
                 IFS=','
                 for uri in $RAW; do
