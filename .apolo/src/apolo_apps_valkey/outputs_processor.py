@@ -72,30 +72,12 @@ class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
         external = getattr(outputs, "external_connection", None)
 
         uri = None
-        if internal is not None:
-            try:
-                uri = internal.resp_uri
-            except Exception:
-                uri = None
-        elif external is not None:
-            try:
-                uri = external.resp_uri
-            except Exception:
-                uri = None
+        for conn in [internal, external]:
+            if conn is not None:
+                try:
+                    uri = conn.resp_uri
+                    break
+                except Exception:
+                    continue
 
-        # Ensure `raw` is JSON-serializable: prefer Pydantic `model_dump`
-        # or `dict` when available
-        def _to_primitive(obj: t.Any) -> t.Any:
-            try:
-                if hasattr(obj, "model_dump") and callable(obj.model_dump):
-                    return obj.model_dump()
-            except Exception:
-                pass
-            try:
-                if hasattr(obj, "dict") and callable(obj.dict):
-                    return obj.dict()
-            except Exception:
-                pass
-            return obj
-
-        return {"uri": uri, "app_url": None, "raw": _to_primitive(outputs)}
+        return {"uri": uri, "app_url": None, "raw": outputs.model_dump()}
