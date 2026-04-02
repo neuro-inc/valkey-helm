@@ -15,8 +15,6 @@ from apolo_apps_valkey.app_types import (
     ValkeyReplicationArchitecture,
     ValkeyStandaloneArchitecture,
     ValkeyVolume,
-    WebhookConfig,
-    WorkerConfig,
 )
 from apolo_apps_valkey.inputs_processor import ValkeyAppChartValueProcessor
 
@@ -76,8 +74,6 @@ def basic_inputs_with_valkey_standalone():
     """Create ValkeyAppInputs with Valkey standalone architecture."""
     return ValkeyAppInputs(
         main_app_config=MainApplicationConfig(preset=Preset(name="cpu-small")),
-        worker_config=WorkerConfig(preset=Preset(name="cpu-small"), replicas=2),
-        webhook_config=WebhookConfig(preset=Preset(name="cpu-small"), replicas=1),
         valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
@@ -101,8 +97,6 @@ def inputs_with_valkey_replication():
                 target_memory_utilization_percentage=80,
             ),
         ),
-        worker_config=WorkerConfig(preset=Preset(name="cpu-small"), replicas=2),
-        webhook_config=WebhookConfig(preset=Preset(name="cpu-small"), replicas=1),
         valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyReplicationArchitecture(
@@ -125,8 +119,6 @@ def inputs_with_postgres():
     """Create ValkeyAppInputs with PostgreSQL database."""
     return ValkeyAppInputs(
         main_app_config=MainApplicationConfig(preset=Preset(name="cpu-small")),
-        worker_config=WorkerConfig(preset=Preset(name="cpu-small"), replicas=2),
-        webhook_config=WebhookConfig(preset=Preset(name="cpu-small"), replicas=1),
         valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
@@ -337,8 +329,6 @@ def inputs_with_persistence_none():
         main_app_config=MainApplicationConfig(
             preset=Preset(name="cpu-small"), persistence=None
         ),
-        worker_config=WorkerConfig(preset=Preset(name="cpu-small"), replicas=2),
-        webhook_config=WebhookConfig(preset=Preset(name="cpu-small"), replicas=1),
         valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
@@ -361,8 +351,6 @@ def inputs_with_custom_persistence_path():
                 )
             ),
         ),
-        worker_config=WorkerConfig(preset=Preset(name="cpu-small"), replicas=2),
-        webhook_config=WebhookConfig(preset=Preset(name="cpu-small"), replicas=1),
         valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(

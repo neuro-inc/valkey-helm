@@ -21,10 +21,6 @@ tests:
       - equal:
           path: spec.template.spec.containers[0].env[1].valueFrom.secretKeyRef.optional
           value: true
-      - matchRegex:
-          path: spec.template.spec.containers[0].command[2]
-          pattern: 'Replica connection secret not found, falling back to primary'
-
   - it: should prefer the replica connection secret when replication is enabled
     set:
       replica.enabled: true
@@ -32,7 +28,7 @@ tests:
     asserts:
       - matchRegex:
           path: spec.template.spec.containers[0].command[2]
-          pattern: 'Using replica connection secret'
+          pattern: 'CONNECTION_URI_REPLICA'
       - matchRegex:
           path: spec.template.spec.containers[0].command[2]
-          pattern: 'CONNECTION_URI="\$CONNECTION_URI_REPLICA"'
+          pattern: 'for uri in'

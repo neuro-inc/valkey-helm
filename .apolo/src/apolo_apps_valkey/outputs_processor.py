@@ -83,4 +83,19 @@ class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
             except Exception:
                 uri = None
 
-        return {"uri": uri, "app_url": None, "raw": outputs}
+        # Ensure `raw` is JSON-serializable: prefer Pydantic `model_dump`
+        # or `dict` when available
+        def _to_primitive(obj: t.Any) -> t.Any:
+            try:
+                if hasattr(obj, "model_dump") and callable(obj.model_dump):
+                    return obj.model_dump()
+            except Exception:
+                pass
+            try:
+                if hasattr(obj, "dict") and callable(obj.dict):
+                    return obj.dict()
+            except Exception:
+                pass
+            return obj
+
+        return {"uri": uri, "app_url": None, "raw": _to_primitive(outputs)}
