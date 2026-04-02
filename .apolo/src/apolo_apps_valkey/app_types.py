@@ -84,6 +84,17 @@ class MainApplicationConfig(AbstractAppFieldType):
             "Minimal resources: 0.1 CPU cores, 128 MiB memory.",
         ).as_json_schema_extra(),
     )
+    server_version: str | None = Field(
+        default=None,
+        json_schema_extra=SchemaExtraMetadata(
+            title="Valkey Server Version",
+            description=(
+                "Optional Valkey server image tag (example: '9.0.1'). "
+                "When set, the Helm values will include `image.tag` so the "
+                "chart deploys the requested version."
+            ),
+        ).as_json_schema_extra(),
+    )
     persistence: ValkeyVolume | None = Field(default=ValkeyVolume())
 
 

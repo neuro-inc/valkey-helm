@@ -151,6 +151,23 @@
           "x-description": "Select the resource preset used for the Valkey instance. Minimal resources: 0.1 CPU cores, 128 MiB memory.",
           "x-title": "Main Application preset"
         },
+        "server_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Server Version",
+          "x-description": "Optional Valkey server image tag (example: '9.0.1'). When set, the Helm values will include `image.tag` so the chart deploys the requested version.",
+          "x-is-advanced-field": false,
+          "x-is-configurable": true,
+          "x-meta-type": "inline",
+          "x-title": "Valkey Server Version"
+        },
         "persistence": {
           "anyOf": [
             {
