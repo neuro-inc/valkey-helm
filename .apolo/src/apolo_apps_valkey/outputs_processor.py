@@ -1,11 +1,11 @@
 import logging
 import typing as t
-from typing import cast
+from inspect import iscoroutinefunction
 
 from apolo_app_types.outputs.base import BaseAppOutputsProcessor
-from apolo_app_types.protocols.common import ApoloSecret
+from apolo_app_types.protocols.common.secrets_ import ApoloSecret
 from apolo_app_types.protocols.resp_api import RESPApi
-from apolo_apps_valkey.app_types import ValkeyAppOutputs
+from apolo_apps_valkey.app_types import ValkeyAppOutputs, ValkeyConnectionInfo
 
 
 logger = logging.getLogger(__name__)
@@ -17,40 +17,27 @@ async def get_valkey_outputs(
     helm_values: dict[str, t.Any],
     app_instance_id: str,
 ) -> ValkeyAppOutputs:
+    """
+    Create internal connections for standalone or replicated Valkey.
+    """
     release_name = f"valkey-{app_instance_id}"
 
-    # внутрішній доступ
-    internal_host = f"{release_name}"
+    pw_raw = helm_values.get("auth", {}).get("password")
 
-    password = helm_values.get("auth", {}).get("password")
+    if isinstance(pw_raw, ApoloSecret):
+        pw_field = pw_raw
+    elif isinstance(pw_raw, dict):
+        pw_field = ApoloSecret(**pw_raw)
+    elif isinstance(pw_raw, str) and pw_raw:
+        pw_field = ApoloSecret(key=pw_raw)
+    else:
+        pw_field = ApoloSecret(key="")
 
-    internal_api = None
-    if password:
-        # ApoloSecret is a typing-only TypedDict/Protocol — do not call it.
-        internal_api = RESPApi(
-            host=internal_host,
-            port=VALKEY_PORT,
-            password=cast(ApoloSecret, {"name": "valkey.password", "value": password}),
-        )
-
-    # 👉 external доступ (якщо LoadBalancer)
-    external_api = None
-    if helm_values.get("service", {}).get("type") == "LoadBalancer":
-        external_host = helm_values.get("service", {}).get("externalIP")
-
-        if external_host:
-            external_api = RESPApi(
-                host=external_host,
-                port=VALKEY_PORT,
-                password=cast(
-                    ApoloSecret, {"name": "valkey.password", "value": password}
-                ),
-            )
-
-    return ValkeyAppOutputs(
-        internal_connection=internal_api,
-        external_connection=external_api,
+    internal_api = RESPApi(host=release_name, port=VALKEY_PORT, password=pw_raw or None)
+    internal_conn = ValkeyConnectionInfo(
+        host=release_name, port=VALKEY_PORT, user="", password=pw_field
     )
+    return ValkeyAppOutputs(internal_connection=internal_conn, redis=internal_api)
 
 
 class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
@@ -68,16 +55,32 @@ class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
     ) -> dict[str, t.Any]:
         outputs = await self._generate_outputs(helm_values, app_instance_id)
 
-        internal = getattr(outputs, "internal_connection", None)
-        external = getattr(outputs, "external_connection", None)
+        connections = [("internal", getattr(outputs, "internal_connection", None))]
+        replicas = getattr(outputs, "replicas", [])
+        connections.extend((f"replica_{i}", r) for i, r in enumerate(replicas))
+        connections.append(("redis", getattr(outputs, "redis", None)))
 
         uri = None
-        for conn in [internal, external]:
-            if conn is not None:
-                try:
-                    uri = conn.resp_uri
-                    break
-                except Exception:
+        for name, conn in connections:
+            if conn is None:
+                continue
+            try:
+                resp_method = getattr(conn, "resp_uri", None)
+                if resp_method is None or not callable(resp_method):
                     continue
 
-        return {"uri": uri, "app_url": None, "raw": outputs.model_dump()}
+                uri = (
+                    await resp_method(None)
+                    if iscoroutinefunction(resp_method)
+                    else resp_method(None)
+                )
+                logger.info("Resolved Valkey URI from %s connection: %s", name, uri)
+                break
+            except Exception as e:
+                logger.warning(
+                    "Failed to resolve Valkey URI from %s connection: %s", name, e
+                )
+                continue
+
+        raw = outputs.model_dump() if hasattr(outputs, "model_dump") else outputs
+        return {"uri": uri, "app_url": None, "raw": raw}
