@@ -14,7 +14,7 @@ spec:
             - name: CONNECTION_URI
               valueFrom:
                 secretKeyRef:
-                  name: {{- if .Values.connectionSecret.name }}{{ .Values.connectionSecret.name }}{{- else }}{{ include "valkey.fullname" . }}-connection{{- end }}
+                  name: "valkey-connection-secret"
                   key: uri
           command:
             - sh
