@@ -1,0 +1,34 @@
+suite: connection job
+templates:
+  - templates/connection-job.yaml
+tests:
+  - it: should fall back to the primary connection secret by default
+    asserts:
+      - isKind:
+          of: Job
+      - equal:
+          path: spec.template.spec.containers[0].env[0].name
+          value: CONNECTION_URI
+      - equal:
+          path: spec.template.spec.containers[0].env[0].valueFrom.secretKeyRef.name
+          value: RELEASE-NAME-valkey-connection-secret
+      - equal:
+          path: spec.template.spec.containers[0].env[1].name
+          value: CONNECTION_URI_REPLICA
+      - equal:
+          path: spec.template.spec.containers[0].env[1].valueFrom.secretKeyRef.name
+          value: RELEASE-NAME-valkey-connection-secret-replica
+      - equal:
+          path: spec.template.spec.containers[0].env[1].valueFrom.secretKeyRef.optional
+          value: true
+  - it: should prefer the replica connection secret when replication is enabled
+    set:
+      replica.enabled: true
+      replica.service.enabled: true
+    asserts:
+      - matchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: 'CONNECTION_URI_REPLICA'
+      - matchRegex:
+          path: spec.template.spec.containers[0].command[2]
+          pattern: 'for uri in'

@@ -76,6 +76,26 @@ async def test_valkey_values_generation(
     assert "extraEnv" in helm_params
     assert isinstance(helm_params["extraEnv"], list)
 
+
+async def test_no_connection_secret_by_default(
+    apolo_client,
+    mock_get_preset_cpu,
+    basic_valkey_inputs,
+):
+    """Ensure gen_extra_values does not inject a connectionSecret unless requested."""
+    input_processor = ValkeyAppChartValueProcessor(client=apolo_client)
+    helm_params = await input_processor.gen_extra_values(
+        input_=basic_valkey_inputs,
+        app_name="valkey-app",
+        namespace=DEFAULT_NAMESPACE,
+        app_secrets_name=APP_SECRETS_NAME,
+        app_id=APP_ID,
+    )
+
+    # By default we do not add a connectionSecret block; it should only appear
+    # when the caller supplies it (or when inline auth is configured).
+    assert "connectionSecret" not in helm_params
+
     # Check that application label is correct
     assert helm_params["labels"] == {"application": "valkey"}
 
@@ -272,3 +292,50 @@ async def test_custom_persistence_path_with_sqlite(apolo_client, mock_get_preset
     assert isinstance(helm_params["auth"], dict)
     assert "extraEnv" in helm_params
     assert isinstance(helm_params["extraEnv"], list)
+
+
+async def test_checks_image_tag_when_enabled(
+    apolo_client, mock_get_preset_cpu, monkeypatch
+):
+    """When VALKEY_CHECK_IMAGE_TAG=1 and a server_version is provided, ensure
+    the image tag checker is invoked with the expected repository and tag.
+    """
+    monkeypatch.setenv("VALKEY_CHECK_IMAGE_TAG", "1")
+
+    input_processor = ValkeyAppChartValueProcessor(client=apolo_client)
+
+    # Build inputs with a pinned server_version so the code will attempt the check
+    inputs = ValkeyAppInputs(
+        main_app_config=MainApplicationConfig(
+            preset=Preset(name="cpu-small"), server_version="1.2.3"
+        ),
+        valkey_config=ValkeyConfig(
+            preset=Preset(name="cpu-small"),
+            architecture=ValkeyStandaloneArchitecture(
+                architecture_type=ValkeyArchitectureTypes.STANDALONE
+            ),
+        ),
+        networking=BasicNetworkingConfig(),
+    )
+
+    called: list[tuple[str, str]] = []
+
+    async def _fake_check(repo: str, tag: str) -> None:
+        called.append((repo, tag))
+
+    # Patch the module helper so we don't perform real network calls
+    monkeypatch.setattr(
+        "apolo_apps_valkey.inputs_processor._maybe_check_image_tag",
+        _fake_check,
+    )
+
+    await input_processor.gen_extra_values(
+        input_=inputs,
+        app_name="valkey-app",
+        namespace=DEFAULT_NAMESPACE,
+        app_secrets_name=APP_SECRETS_NAME,
+        app_id=APP_ID,
+    )
+
+    # Ensure our fake checker was called with the repository and tag
+    assert called == [("valkey/valkey", "1.2.3")]
