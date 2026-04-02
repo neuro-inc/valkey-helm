@@ -77,7 +77,11 @@ async def test_valkey_values_generation(
     assert isinstance(helm_params["extraEnv"], list)
 
 
-async def test_no_connection_secret_by_default(apolo_client, mock_get_preset_cpu, basic_valkey_inputs):
+async def test_no_connection_secret_by_default(
+    apolo_client,
+    mock_get_preset_cpu,
+    basic_valkey_inputs,
+):
     """Ensure gen_extra_values does not inject a connectionSecret unless requested."""
     input_processor = ValkeyAppChartValueProcessor(client=apolo_client)
     helm_params = await input_processor.gen_extra_values(
