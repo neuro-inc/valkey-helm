@@ -294,7 +294,9 @@ async def test_custom_persistence_path_with_sqlite(apolo_client, mock_get_preset
     assert isinstance(helm_params["extraEnv"], list)
 
 
-async def test_checks_image_tag_when_enabled(apolo_client, mock_get_preset_cpu, monkeypatch):
+async def test_checks_image_tag_when_enabled(
+    apolo_client, mock_get_preset_cpu, monkeypatch
+):
     """When VALKEY_CHECK_IMAGE_TAG=1 and a server_version is provided, ensure
     the image tag checker is invoked with the expected repository and tag.
     """
@@ -337,4 +339,3 @@ async def test_checks_image_tag_when_enabled(apolo_client, mock_get_preset_cpu, 
 
     # Ensure our fake checker was called with the repository and tag
     assert called == [("valkey/valkey", "1.2.3")]
-
