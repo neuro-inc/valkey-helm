@@ -76,6 +76,22 @@ async def test_valkey_values_generation(
     assert "extraEnv" in helm_params
     assert isinstance(helm_params["extraEnv"], list)
 
+
+async def test_no_connection_secret_by_default(apolo_client, mock_get_preset_cpu, basic_valkey_inputs):
+    """Ensure gen_extra_values does not inject a connectionSecret unless requested."""
+    input_processor = ValkeyAppChartValueProcessor(client=apolo_client)
+    helm_params = await input_processor.gen_extra_values(
+        input_=basic_valkey_inputs,
+        app_name="valkey-app",
+        namespace=DEFAULT_NAMESPACE,
+        app_secrets_name=APP_SECRETS_NAME,
+        app_id=APP_ID,
+    )
+
+    # By default we do not add a connectionSecret block; it should only appear
+    # when the caller supplies it (or when inline auth is configured).
+    assert "connectionSecret" not in helm_params
+
     # Check that application label is correct
     assert helm_params["labels"] == {"application": "valkey"}
 

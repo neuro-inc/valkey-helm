@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: valkey-connect-test
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: redis-cli
+          image: redis:7-alpine
+          env:
+            - name: CONNECTION_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{- if .Values.connectionSecret.name }}{{ .Values.connectionSecret.name }}{{- else }}{{ include "valkey.fullname" . }}-connection{{- end }}
+                  key: uri
+          command:
+            - sh
+            - -c
+            - |
+              # Trim any trailing newline from the secret value (yaml multiline often includes a final newline)
+              URI="$(echo "$CONNECTION_URI" | tr -d '\r\n')"
+              echo "Using URI: $URI"
+              # redis-cli supports the -u flag for providing a full URI
+              redis-cli -u "$URI" PING || (echo "redis PING failed" && exit 1)
