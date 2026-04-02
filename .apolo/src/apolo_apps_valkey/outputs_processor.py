@@ -11,6 +11,46 @@ from apolo_apps_valkey.app_types import ValkeyAppOutputs
 logger = logging.getLogger(__name__)
 
 VALKEY_PORT = 6379
+SECRET_KEY = "valkey.password"
+
+
+def build_connection_info(
+    host: str | None,
+    password: str | None,
+) -> dict[str, t.Any] | None:
+    if not host or not password:
+        return None
+
+    return {
+        "host": host,
+        "port": VALKEY_PORT,
+        "user": "",
+        "password": {"key": SECRET_KEY},
+    }
+
+
+async def build_uri(
+    host: str | None,
+    password: str | None,
+) -> str | None:
+    if not host or not password:
+        return None
+
+    try:
+        api = RESPApi(
+            host=host,
+            port=VALKEY_PORT,
+            password=cast(
+                ApoloSecret,
+                {"key": SECRET_KEY, "value": password},
+            ),
+        )
+
+        return await api.resp_uri()
+
+    except Exception:
+        logger.exception("Failed to build RESP URI")
+        return None
 
 
 async def get_valkey_outputs(
@@ -18,35 +58,17 @@ async def get_valkey_outputs(
     app_instance_id: str,
 ) -> ValkeyAppOutputs:
     release_name = f"valkey-{app_instance_id}"
+    internal_host = release_name
 
-    internal_host = f"{release_name}"
+    password: str | None = helm_values.get("auth", {}).get("password")
 
-    password = helm_values.get("auth", {}).get("password")
-
-    internal_api = None
-    if password:
-        internal_api = RESPApi(
-            host=internal_host,
-            port=VALKEY_PORT,
-            password=cast(ApoloSecret, {"name": "valkey.password", "value": password}),
-        )
-
-    external_api = None
+    external_host: str | None = None
     if helm_values.get("service", {}).get("type") == "LoadBalancer":
         external_host = helm_values.get("service", {}).get("externalIP")
 
-        if external_host:
-            external_api = RESPApi(
-                host=external_host,
-                port=VALKEY_PORT,
-                password=cast(
-                    ApoloSecret, {"name": "valkey.password", "value": password}
-                ),
-            )
-
     return ValkeyAppOutputs(
-        internal_connection=internal_api,
-        external_connection=external_api,
+        internal_connection=build_connection_info(internal_host, password),
+        external_connection=build_connection_info(external_host, password),
     )
 
 
@@ -65,19 +87,20 @@ class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
     ) -> dict[str, t.Any]:
         outputs = await self._generate_outputs(helm_values, app_instance_id)
 
-        internal = getattr(outputs, "internal_connection", None)
-        external = getattr(outputs, "external_connection", None)
+        password: str | None = helm_values.get("auth", {}).get("password")
+        release_name = f"valkey-{app_instance_id}"
+        internal_host = release_name
 
-        uri = None
-        if internal is not None:
-            try:
-                uri = internal.resp_uri
-            except Exception:
-                uri = None
-        elif external is not None:
-            try:
-                uri = external.resp_uri
-            except Exception:
-                uri = None
+        external_host: str | None = None
+        if helm_values.get("service", {}).get("type") == "LoadBalancer":
+            external_host = helm_values.get("service", {}).get("externalIP")
 
-        return {"uri": uri, "app_url": None, "raw": outputs}
+        uri = await build_uri(internal_host, password)
+        if not uri:
+            uri = await build_uri(external_host, password)
+
+        return {
+            "uri": uri,
+            "app_url": None,
+            "raw": outputs.model_dump(),
+        }
