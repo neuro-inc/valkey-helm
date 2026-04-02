@@ -14,14 +14,38 @@ spec:
             - name: CONNECTION_URI
               valueFrom:
                 secretKeyRef:
-                  name: "valkey-connection-secret"
+                  name: {{ include "valkey.connectionSecretName" . | quote }}
                   key: uri
+            - name: CONNECTION_URI_REPLICA
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "valkey.connectionSecretReplicaName" . | quote }}
+                  key: uri
+                  optional: true
           command:
             - sh
             - -c
             - |
-              # Trim any trailing newline from the secret value (yaml multiline often includes a final newline)
-              URI="$(echo "$CONNECTION_URI" | tr -d '\r\n')"
-              echo "Using URI: $URI"
-              # redis-cli supports the -u flag for providing a full URI
-              redis-cli -u "$URI" PING || (echo "redis PING failed" && exit 1)
+              set -e
+
+              trim() {
+                echo "$1" | tr -d '\r\n' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+              }
+
+              # --- Primary check ---
+              URI="$(trim "$CONNECTION_URI")"
+              echo "Checking primary URI: $URI"
+              redis-cli -u "$URI" PING || (echo "Primary redis PING failed" && exit 1)
+
+              # --- Replica check (comma-separated only) ---
+              if [ -n "$CONNECTION_URI_REPLICA" ]; then
+                RAW="$(trim "$CONNECTION_URI_REPLICA")"
+                IFS=','
+                for uri in $RAW; do
+                  uri="$(trim "$uri")"
+                  [ -z "$uri" ] && continue
+                  echo "Checking replica URI: $uri"
+                  redis-cli -u "$uri" PING || (echo "Replica redis PING failed for $uri" && exit 1)
+                done
+                unset IFS
+              fi
