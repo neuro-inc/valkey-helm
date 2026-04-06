@@ -1,6 +1,6 @@
 import logging
-import secrets
 import typing as t
+from collections.abc import Mapping
 
 from apolo_app_types.outputs.base import BaseAppOutputsProcessor
 from apolo_app_types.protocols.common import ApoloSecret
@@ -11,31 +11,65 @@ from apolo_apps_valkey.app_types import ValkeyAppOutputs
 logger = logging.getLogger(__name__)
 
 VALKEY_PORT = 6379
-_VALKEY_PREFIX = "valkey"
+FULLNAME_PREFIX = "valkey"
 
 
-def _generate_secret_key() -> str:
-    return f"{_VALKEY_PREFIX}.{secrets.token_hex(8)}"
+def _get_host(helm_values: Mapping[str, t.Any], app_instance_id: str) -> str:
+    fullname_override = helm_values.get("fullnameOverride")
+    if isinstance(fullname_override, str) and fullname_override:
+        return fullname_override
+
+    return f"{FULLNAME_PREFIX}-{app_instance_id}"
 
 
-def _define_host(app_instance_id: str) -> str:
-    return f"{_VALKEY_PREFIX}-{app_instance_id}"
+def _resolve_auth(helm_values: Mapping[str, t.Any]) -> tuple[str, str | None]:
+    connection_secret = helm_values.get("connectionSecret")
+    if isinstance(connection_secret, dict):
+        password = connection_secret.get("password")
+        if isinstance(password, str) and password:
+            return password, None
+
+    auth = helm_values.get("auth")
+    if isinstance(auth, dict):
+        acl_users = auth.get("aclUsers")
+        if isinstance(acl_users, dict):
+            default_user = acl_users.get("default")
+            if isinstance(default_user, dict):
+                password = default_user.get("password")
+                username = default_user.get("username", "default")
+                if isinstance(password, str) and password:
+                    return password, username
+
+    msg = (
+        "helm_values must include connectionSecret.password or "
+        "auth.aclUsers.default.password"
+    )
+    raise ValueError(msg)
 
 
-def _build_connection_info(host: str, secret_key: str) -> dict[str, t.Any]:
+def _build_connection_info(
+    host: str,
+    password: str,
+    username: str | None,
+) -> dict[str, t.Any]:
     return {
         "host": host,
         "port": VALKEY_PORT,
-        "user": "",
-        "password": ApoloSecret(key=secret_key),
+        "user": username or "",
+        "password": ApoloSecret(key=password),
     }
 
 
-async def _build_uri(host: str, secret_key: str) -> str | None:
+async def _build_uri(
+    host: str,
+    secret_key: str,
+    username: str | None,
+) -> str | None:
     try:
         api = RESPApi(
             host=host,
             port=VALKEY_PORT,
+            user=username or "",
             password=ApoloSecret(key=secret_key),
         )
         return await api.resp_uri()
@@ -45,12 +79,12 @@ async def _build_uri(host: str, secret_key: str) -> str | None:
 
 
 def _get_valkey_outputs(
-    app_instance_id: str,
-    secret_key: str,
+    host: str,
+    password: str,
+    username: str | None,
 ) -> ValkeyAppOutputs:
-    host = _define_host(app_instance_id)
     return ValkeyAppOutputs(
-        connection=_build_connection_info(host, secret_key),
+        connection=_build_connection_info(host, password, username),
     )
 
 
@@ -60,24 +94,22 @@ class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
         helm_values: dict[str, t.Any],  # kept for interface compatibility
         app_instance_id: str,
     ) -> ValkeyAppOutputs:
-        secret_key = _generate_secret_key()
-        return _get_valkey_outputs(app_instance_id, secret_key)
+        host = _get_host(helm_values, app_instance_id)
+        password, username = _resolve_auth(helm_values)
+
+        return _get_valkey_outputs(host, password, username)
 
     async def generate_outputs(
         self,
         helm_values: dict[str, t.Any],
         app_instance_id: str,
     ) -> dict[str, t.Any]:
-        outputs = await self._generate_outputs(helm_values, app_instance_id)
+        host = _get_host(helm_values, app_instance_id)
+        password, username = _resolve_auth(helm_values)
 
-        secret = outputs.connection.password if outputs.connection else None
-        secret_key = secret.key if isinstance(secret, ApoloSecret) else None
+        outputs = _get_valkey_outputs(host, password, username)
 
-        if not secret_key:
-            secret_key = _generate_secret_key()
-
-        host = _define_host(app_instance_id)
-        uri = await _build_uri(host, secret_key)
+        uri = await _build_uri(host, password, username)
 
         return {
             "uri": uri,

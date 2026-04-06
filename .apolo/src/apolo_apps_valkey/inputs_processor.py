@@ -1,6 +1,7 @@
 import copy
 import logging
 import os
+import secrets
 import typing as t
 
 from apolo_app_types.app_types import AppType
@@ -24,6 +25,11 @@ VALKEY_PORT = 6379
 SERVICE_TYPE = "ClusterIP"
 PULL_POLICY = "IfNotPresent"
 DATA_VOLUME_NAME = "valkey-data"
+AUTH_DEFAULT_PERMISSIONS = "~* &* +@all"
+
+
+def _generate_secret_key() -> str:
+    return f"{FULLNAME_PREFIX}-{secrets.token_hex(8)}"
 
 
 def _resolve_image_tag(input_: ValkeyAppInputs) -> str:
@@ -89,6 +95,18 @@ def _build_ingress(extra_values: dict[str, t.Any]) -> dict[str, t.Any]:
     return ingress
 
 
+def _build_auth() -> dict[str, t.Any]:
+    return {
+        "enabled": True,
+        "aclUsers": {
+            "default": {
+                "permissions": AUTH_DEFAULT_PERMISSIONS,
+                "password": _generate_secret_key(),
+            }
+        },
+    }
+
+
 class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
     async def gen_extra_values(
         self,
@@ -125,7 +143,7 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
                 "port": VALKEY_PORT,
                 "annotations": {},
             },
-            "auth": {"enabled": False},
+            "auth": _build_auth(),
             "labels": {"application": "valkey"},
         }
 

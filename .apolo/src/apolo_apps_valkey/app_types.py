@@ -162,10 +162,5 @@ class ValkeyConnectionInfo(AbstractAppFieldType):
 
 
 class ValkeyAppOutputs(AppOutputs):
-    """Outputs produced by Valkey app output processor.
-
-    Add `uri` field so outputs serializers include the generated Redis/Valkey URI.
-    """
-
     redis: RESPApi | None = None
     connection: ValkeyConnectionInfo | None = None

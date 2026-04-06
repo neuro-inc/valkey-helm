@@ -190,7 +190,7 @@ async def test_helm_template_with_generated_values_standalone(
     assert helm_values["labels"] == {"application": "valkey"}
     assert "service" in helm_values
     assert helm_values["service"]["port"] == 6379
-    assert helm_values["auth"]["enabled"] is False
+    assert helm_values["auth"]["enabled"] is True
     assert "resources" in helm_values
     assert "replica" in helm_values
 

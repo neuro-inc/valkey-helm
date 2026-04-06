@@ -67,7 +67,14 @@ async def test_valkey_values_generation(
 
     assert "auth" in helm_params
     assert isinstance(helm_params["auth"], dict)
-    assert helm_params["auth"]["enabled"] is False
+    assert helm_params["auth"]["enabled"] is True
+    assert "aclUsers" in helm_params["auth"]
+    assert "default" in helm_params["auth"]["aclUsers"]
+    default_user = helm_params["auth"]["aclUsers"]["default"]
+    assert "password" in default_user
+    assert isinstance(default_user["password"], str)
+    assert len(default_user["password"]) > 0
+    assert "permissions" in default_user
 
     assert "extraEnv" in helm_params
     assert isinstance(helm_params["extraEnv"], list)
@@ -88,9 +95,13 @@ async def test_no_connection_secret_by_default(
         app_id=APP_ID,
     )
 
-    # By default we do not add a connectionSecret block because auth stays off.
+    # By default we do not add a connectionSecret block; auth is enabled via aclUsers.
     assert "connectionSecret" not in helm_params
-    assert helm_params["auth"] == {"enabled": False}
+    auth = helm_params["auth"]
+    assert auth["enabled"] is True
+    assert "aclUsers" in auth
+    assert "default" in auth["aclUsers"]
+    assert isinstance(auth["aclUsers"]["default"]["password"], str)
 
     # Check that application label is correct
     assert helm_params["labels"] == {"application": "valkey"}
