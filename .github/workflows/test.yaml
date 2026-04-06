@@ -70,6 +70,8 @@ jobs:
         uses: actions/checkout@v5
       - name: Install Helm
         uses: azure/setup-helm@v4
+      - name: Install Helm unittest plugin
+        run: helm plugin install https://github.com/helm-unittest/helm-unittest
       - name: Run Helm tests
         run: make test-helm
 
