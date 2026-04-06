@@ -1,6 +1,6 @@
 import logging
+import secrets
 import typing as t
-from typing import cast
 
 from apolo_app_types.outputs.base import BaseAppOutputsProcessor
 from apolo_app_types.protocols.common import ApoloSecret
@@ -11,74 +11,57 @@ from apolo_apps_valkey.app_types import ValkeyAppOutputs
 logger = logging.getLogger(__name__)
 
 VALKEY_PORT = 6379
-SECRET_KEY = "valkey.password"
+_VALKEY_PREFIX = "valkey"
 
 
-def build_connection_info(
-    host: str | None,
-    password: str | None,
-) -> dict[str, t.Any] | None:
-    if not host or not password:
-        return None
+def _generate_secret_key() -> str:
+    return f"{_VALKEY_PREFIX}.{secrets.token_hex(8)}"
 
+
+def _define_host(app_instance_id: str) -> str:
+    return f"{_VALKEY_PREFIX}-{app_instance_id}"
+
+
+def _build_connection_info(host: str, secret_key: str) -> dict[str, t.Any]:
     return {
         "host": host,
         "port": VALKEY_PORT,
         "user": "",
-        "password": {"key": SECRET_KEY},
+        "password": ApoloSecret(key=secret_key),
     }
 
 
-async def build_uri(
-    host: str | None,
-    password: str | None,
-) -> str | None:
-    if not host or not password:
-        return None
-
+async def _build_uri(host: str, secret_key: str) -> str | None:
     try:
         api = RESPApi(
             host=host,
             port=VALKEY_PORT,
-            password=cast(
-                ApoloSecret,
-                {"key": SECRET_KEY, "value": password},
-            ),
+            password=ApoloSecret(key=secret_key),
         )
-
         return await api.resp_uri()
-
     except Exception:
-        logger.exception("Failed to build RESP URI")
+        logger.exception("Failed to build RESP URI for host %r", host)
         return None
 
 
-async def get_valkey_outputs(
-    helm_values: dict[str, t.Any],
+def _get_valkey_outputs(
     app_instance_id: str,
+    secret_key: str,
 ) -> ValkeyAppOutputs:
-    release_name = f"valkey-{app_instance_id}"
-    internal_host = release_name
-
-    password: str | None = helm_values.get("auth", {}).get("password")
-
-    external_host: str | None = None
-    if helm_values.get("service", {}).get("type") == "LoadBalancer":
-        external_host = helm_values.get("service", {}).get("externalIP")
-
+    host = _define_host(app_instance_id)
     return ValkeyAppOutputs(
-        internal_connection=build_connection_info(internal_host, password),
-        external_connection=build_connection_info(external_host, password),
+        connection=_build_connection_info(host, secret_key),
     )
 
 
 class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
     async def _generate_outputs(
         self,
-        helm_values: dict[str, t.Any],
+        helm_values: dict[str, t.Any],  # kept for interface compatibility
         app_instance_id: str,
     ) -> ValkeyAppOutputs:
-        return await get_valkey_outputs(helm_values, app_instance_id)
+        secret_key = _generate_secret_key()
+        return _get_valkey_outputs(app_instance_id, secret_key)
 
     async def generate_outputs(
         self,
@@ -87,17 +70,14 @@ class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
     ) -> dict[str, t.Any]:
         outputs = await self._generate_outputs(helm_values, app_instance_id)
 
-        password: str | None = helm_values.get("auth", {}).get("password")
-        release_name = f"valkey-{app_instance_id}"
-        internal_host = release_name
+        secret = outputs.connection.password if outputs.connection else None
+        secret_key = secret.key if isinstance(secret, ApoloSecret) else None
 
-        external_host: str | None = None
-        if helm_values.get("service", {}).get("type") == "LoadBalancer":
-            external_host = helm_values.get("service", {}).get("externalIP")
+        if not secret_key:
+            secret_key = _generate_secret_key()
 
-        uri = await build_uri(internal_host, password)
-        if not uri:
-            uri = await build_uri(external_host, password)
+        host = _define_host(app_instance_id)
+        uri = await _build_uri(host, secret_key)
 
         return {
             "uri": uri,

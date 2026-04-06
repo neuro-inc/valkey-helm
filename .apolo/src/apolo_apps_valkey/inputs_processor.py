@@ -26,18 +26,10 @@ PULL_POLICY = "IfNotPresent"
 DATA_VOLUME_NAME = "valkey-data"
 
 
-def _resolve_app_type() -> AppType:
-    for name in ("VALKEY", "Valkey", "VALKEY_APP"):
-        if hasattr(AppType, name):
-            return getattr(AppType, name)
-    msg = "Valkey AppType is not defined"
-    raise ValueError(msg)
-
-
 def _resolve_image_tag(input_: ValkeyAppInputs) -> str:
     return (
         os.getenv("VALKEY_IMAGE_TAG")
-        or getattr(input_.main_app_config, "server_version", None)
+        or getattr(input_.valkey_config, "server_version", None)
         or DEFAULT_SERVER_VERSION
     )
 
@@ -57,7 +49,7 @@ def _build_optional_values(extra_values: dict[str, t.Any]) -> dict[str, t.Any]:
 
 
 def _build_persistence(input_: ValkeyAppInputs) -> dict[str, t.Any]:
-    persistence = input_.main_app_config.persistence
+    persistence = input_.valkey_config.persistence
     if not persistence:
         return {"enabled": False}
 
@@ -110,9 +102,9 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
     ) -> dict[str, t.Any]:
         extra_values = await _gen_common_extra_values(
             apolo_client=self.client,
-            preset_type=input_.main_app_config.preset,
+            preset_type=input_.valkey_config.preset,
             app_id=app_id,
-            app_type=_resolve_app_type(),
+            app_type=AppType.Valkey,
             namespace=namespace,
             ingress_http=input_.networking.ingress_http,
         )

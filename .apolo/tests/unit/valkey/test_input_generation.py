@@ -5,17 +5,15 @@ from apolo_app_types_fixtures.constants import (
     DEFAULT_NAMESPACE,
 )
 from apolo_apps_valkey.app_types import (
-    MainApplicationConfig,
     ValkeyAppInputs,
     ValkeyArchitectureTypes,
     ValkeyConfig,
     ValkeyReplicationArchitecture,
     ValkeyStandaloneArchitecture,
-    ValkeyVolume,
 )
 from apolo_apps_valkey.inputs_processor import ValkeyAppChartValueProcessor
 
-from apolo_app_types.protocols.common import ApoloFilesPath, AutoscalingHPA, Preset
+from apolo_app_types.protocols.common import AutoscalingHPA, Preset
 from apolo_app_types.protocols.common.ingress import BasicNetworkingConfig
 
 
@@ -23,9 +21,6 @@ from apolo_app_types.protocols.common.ingress import BasicNetworkingConfig
 def basic_valkey_inputs():
     """Create basic ValkeyAppInputs for testing."""
     return ValkeyAppInputs(
-        main_app_config=MainApplicationConfig(
-            preset=Preset(name="cpu-small"), persistence=None
-        ),
         valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
@@ -72,6 +67,7 @@ async def test_valkey_values_generation(
 
     assert "auth" in helm_params
     assert isinstance(helm_params["auth"], dict)
+    assert helm_params["auth"]["enabled"] is False
 
     assert "extraEnv" in helm_params
     assert isinstance(helm_params["extraEnv"], list)
@@ -92,9 +88,9 @@ async def test_no_connection_secret_by_default(
         app_id=APP_ID,
     )
 
-    # By default we do not add a connectionSecret block; it should only appear
-    # when the caller supplies it (or when inline auth is configured).
+    # By default we do not add a connectionSecret block because auth stays off.
     assert "connectionSecret" not in helm_params
+    assert helm_params["auth"] == {"enabled": False}
 
     # Check that application label is correct
     assert helm_params["labels"] == {"application": "valkey"}
@@ -133,7 +129,6 @@ async def test_valkey_replication_without_autoscaling(
     input_processor = ValkeyAppChartValueProcessor(client=apolo_client)
 
     inputs = ValkeyAppInputs(
-        main_app_config=MainApplicationConfig(preset=Preset(name="cpu-small")),
         valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyReplicationArchitecture(
@@ -172,7 +167,6 @@ async def test_valkey_replication_with_autoscaling(apolo_client, mock_get_preset
     input_processor = ValkeyAppChartValueProcessor(client=apolo_client)
 
     inputs = ValkeyAppInputs(
-        main_app_config=MainApplicationConfig(preset=Preset(name="cpu-small")),
         valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyReplicationArchitecture(
@@ -208,14 +202,11 @@ async def test_valkey_replication_with_autoscaling(apolo_client, mock_get_preset
     assert "accessModes" in replica_config["persistence"]
 
 
-async def test_persistence_none_with_sqlite(apolo_client, mock_get_preset_cpu):
-    """Test Helm values generation with persistence=None and SQLite database."""
+async def test_persistence_defaults_are_enabled(apolo_client, mock_get_preset_cpu):
+    """Test Helm values generation keeps the default persistence block."""
     input_processor = ValkeyAppChartValueProcessor(client=apolo_client)
 
     inputs = ValkeyAppInputs(
-        main_app_config=MainApplicationConfig(
-            preset=Preset(name="cpu-small"), persistence=None
-        ),
         valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
@@ -249,49 +240,12 @@ async def test_persistence_none_with_sqlite(apolo_client, mock_get_preset_cpu):
     assert "extraEnv" in helm_params
     assert isinstance(helm_params["extraEnv"], list)
 
-
-async def test_custom_persistence_path_with_sqlite(apolo_client, mock_get_preset_cpu):
-    """Test N8n values generation with custom persistence path and SQLite."""
-    input_processor = ValkeyAppChartValueProcessor(client=apolo_client)
-
-    custom_path = "storage://test-cluster/custom/n8n/data"
-    inputs = ValkeyAppInputs(
-        main_app_config=MainApplicationConfig(
-            preset=Preset(name="cpu-small"),
-            persistence=ValkeyVolume(storage_mount=ApoloFilesPath(path=custom_path)),
-        ),
-        valkey_config=ValkeyConfig(
-            preset=Preset(name="cpu-small"),
-            architecture=ValkeyStandaloneArchitecture(
-                architecture_type=ValkeyArchitectureTypes.STANDALONE
-            ),
-        ),
-        networking=BasicNetworkingConfig(),
-    )
-
-    helm_params = await input_processor.gen_extra_values(
-        input_=inputs,
-        app_name="valkey-app",
-        namespace=DEFAULT_NAMESPACE,
-        app_secrets_name=APP_SECRETS_NAME,
-        app_id=APP_ID,
-    )
-
-    # Verify basic structure exists
-    assert "podLabels" in helm_params
-    assert isinstance(helm_params["podLabels"], dict)
-    assert "resources" in helm_params
-    assert isinstance(helm_params["resources"], dict)
-    assert "service" in helm_params
-    assert isinstance(helm_params["service"], dict)
-    assert "labels" in helm_params
-    assert isinstance(helm_params["labels"], dict)
-    assert "image" in helm_params
-    assert isinstance(helm_params["image"], dict)
-    assert "auth" in helm_params
-    assert isinstance(helm_params["auth"], dict)
-    assert "extraEnv" in helm_params
-    assert isinstance(helm_params["extraEnv"], list)
+    data_storage = helm_params["dataStorage"]
+    assert data_storage["enabled"] is True
+    assert data_storage["requestedSize"] == "1Gi"
+    assert data_storage["volumeName"] == "valkey-data"
+    assert data_storage["subPath"] is None
+    assert data_storage["persistentVolumeClaimName"] is None
 
 
 async def test_gen_extra_values_sets_default_image_tag(
@@ -303,7 +257,6 @@ async def test_gen_extra_values_sets_default_image_tag(
     input_processor = ValkeyAppChartValueProcessor(client=apolo_client)
 
     inputs = ValkeyAppInputs(
-        main_app_config=MainApplicationConfig(preset=Preset(name="cpu-small")),
         valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
@@ -323,3 +276,32 @@ async def test_gen_extra_values_sets_default_image_tag(
 
     # When no env var and no input server_version, the default tag is used
     assert helm.get("image", {}).get("tag") == "9.0.1"
+
+
+async def test_gen_extra_values_prefers_env_image_tag(
+    apolo_client, mock_get_preset_cpu, monkeypatch
+):
+    """`VALKEY_IMAGE_TAG` overrides the default image tag resolution."""
+    monkeypatch.setenv("VALKEY_IMAGE_TAG", "9.9.9")
+
+    input_processor = ValkeyAppChartValueProcessor(client=apolo_client)
+
+    inputs = ValkeyAppInputs(
+        valkey_config=ValkeyConfig(
+            preset=Preset(name="cpu-small"),
+            architecture=ValkeyStandaloneArchitecture(
+                architecture_type=ValkeyArchitectureTypes.STANDALONE
+            ),
+        ),
+        networking=BasicNetworkingConfig(),
+    )
+
+    helm = await input_processor.gen_extra_values(
+        input_=inputs,
+        app_name="valkey-app",
+        namespace=DEFAULT_NAMESPACE,
+        app_secrets_name=APP_SECRETS_NAME,
+        app_id=APP_ID,
+    )
+
+    assert helm.get("image", {}).get("tag") == "9.9.9"

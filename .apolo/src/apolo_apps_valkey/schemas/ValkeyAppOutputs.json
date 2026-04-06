@@ -250,18 +250,7 @@
       ],
       "default": null
     },
-    "internal_connection": {
-      "anyOf": [
-        {
-          "$ref": "#/$defs/ValkeyConnectionInfo"
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null
-    },
-    "external_connection": {
+    "connection": {
       "anyOf": [
         {
           "$ref": "#/$defs/ValkeyConnectionInfo"

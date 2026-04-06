@@ -3,7 +3,6 @@ from typing import Literal
 
 from pydantic import ConfigDict, Field
 
-from apolo_app_types import ContainerImage
 from apolo_app_types.helm.utils.storage import get_app_data_files_relative_path_url
 from apolo_app_types.protocols.common import (
     AbstractAppFieldType,
@@ -64,36 +63,6 @@ class ValkeyVolume(AbstractAppFieldType):
             ),
         ).as_json_schema_extra(),
     )
-
-
-class MainApplicationConfig(AbstractAppFieldType):
-    model_config = ConfigDict(
-        protected_namespaces=(),
-        json_schema_extra=SchemaExtraMetadata(
-            title="Main Application Configuration",
-            description="Configure the primary Valkey service that handles core "
-            "data storage functionality, processes requests, and "
-            "manages the core infrastructure.",
-        ).as_json_schema_extra(),
-    )
-    preset: Preset = Field(
-        ...,
-        json_schema_extra=SchemaExtraMetadata(
-            title="Main Application preset",
-            description="Select the resource preset used for the "
-            "Valkey instance. "
-            "Minimal resources: 0.1 CPU cores, 128 MiB memory.",
-        ).as_json_schema_extra(),
-    )
-    docker_image_config: ContainerImage | None = Field(
-        default=None,
-        json_schema_extra=SchemaExtraMetadata(
-            title="Docker Image Config",
-            description="Override container image for Valkey.",
-            is_advanced_field=True,
-        ).as_json_schema_extra(),
-    )
-    persistence: ValkeyVolume | None = Field(default=ValkeyVolume())
 
 
 class ValkeyArchitectureTypes(enum.StrEnum):
@@ -169,7 +138,6 @@ class ValkeyConfig(AbstractAppFieldType):
 
 
 class ValkeyAppInputs(AppInputs):
-    main_app_config: MainApplicationConfig
     valkey_config: ValkeyConfig
     networking: BasicNetworkingConfig = Field(
         default_factory=BasicNetworkingConfig,
@@ -200,5 +168,4 @@ class ValkeyAppOutputs(AppOutputs):
     """
 
     redis: RESPApi | None = None
-    internal_connection: ValkeyConnectionInfo | None = None
-    external_connection: ValkeyConnectionInfo | None = None
+    connection: ValkeyConnectionInfo | None = None
