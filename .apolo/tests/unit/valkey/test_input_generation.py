@@ -294,21 +294,16 @@ async def test_custom_persistence_path_with_sqlite(apolo_client, mock_get_preset
     assert isinstance(helm_params["extraEnv"], list)
 
 
-async def test_checks_image_tag_when_enabled(
+async def test_gen_extra_values_sets_default_image_tag(
     apolo_client, mock_get_preset_cpu, monkeypatch
 ):
-    """When VALKEY_CHECK_IMAGE_TAG=1 and a server_version is provided, ensure
-    the image tag checker is invoked with the expected repository and tag.
-    """
-    monkeypatch.setenv("VALKEY_CHECK_IMAGE_TAG", "1")
+    """`gen_extra_values` includes image.tag resolved from env/input/default."""
+    monkeypatch.delenv("VALKEY_IMAGE_TAG", raising=False)
 
     input_processor = ValkeyAppChartValueProcessor(client=apolo_client)
 
-    # Build inputs with a pinned server_version so the code will attempt the check
     inputs = ValkeyAppInputs(
-        main_app_config=MainApplicationConfig(
-            preset=Preset(name="cpu-small"), server_version="1.2.3"
-        ),
+        main_app_config=MainApplicationConfig(preset=Preset(name="cpu-small")),
         valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
@@ -318,18 +313,7 @@ async def test_checks_image_tag_when_enabled(
         networking=BasicNetworkingConfig(),
     )
 
-    called: list[tuple[str, str]] = []
-
-    async def _fake_check(repo: str, tag: str) -> None:
-        called.append((repo, tag))
-
-    # Patch the module helper so we don't perform real network calls
-    monkeypatch.setattr(
-        "apolo_apps_valkey.inputs_processor._maybe_check_image_tag",
-        _fake_check,
-    )
-
-    await input_processor.gen_extra_values(
+    helm = await input_processor.gen_extra_values(
         input_=inputs,
         app_name="valkey-app",
         namespace=DEFAULT_NAMESPACE,
@@ -337,5 +321,5 @@ async def test_checks_image_tag_when_enabled(
         app_id=APP_ID,
     )
 
-    # Ensure our fake checker was called with the repository and tag
-    assert called == [("valkey/valkey", "1.2.3")]
+    # When no env var and no input server_version, the default tag is used
+    assert helm.get("image", {}).get("tag") == "9.0.1"

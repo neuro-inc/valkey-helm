@@ -3,6 +3,7 @@ from typing import Literal
 
 from pydantic import ConfigDict, Field
 
+from apolo_app_types import ContainerImage
 from apolo_app_types.helm.utils.storage import get_app_data_files_relative_path_url
 from apolo_app_types.protocols.common import (
     AbstractAppFieldType,
@@ -84,15 +85,12 @@ class MainApplicationConfig(AbstractAppFieldType):
             "Minimal resources: 0.1 CPU cores, 128 MiB memory.",
         ).as_json_schema_extra(),
     )
-    server_version: str | None = Field(
+    docker_image_config: ContainerImage | None = Field(
         default=None,
         json_schema_extra=SchemaExtraMetadata(
-            title="Valkey Server Version",
-            description=(
-                "Optional Valkey server image tag (example: '9.0.1'). "
-                "When set, the Helm values will include `image.tag` so the "
-                "chart deploys the requested version."
-            ),
+            title="Docker Image Config",
+            description="Override container image for Valkey.",
+            is_advanced_field=True,
         ).as_json_schema_extra(),
     )
     persistence: ValkeyVolume | None = Field(default=ValkeyVolume())
