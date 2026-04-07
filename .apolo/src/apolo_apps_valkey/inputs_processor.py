@@ -3,6 +3,7 @@ import logging
 import os
 import secrets
 import typing as t
+import uuid
 
 from apolo_app_types.app_types import AppType
 from apolo_app_types.helm.apps.base import BaseChartValueProcessor
@@ -127,10 +128,12 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
             ingress_http=input_.networking.ingress_http,
         )
 
+        canonical_app_id = str(uuid.UUID(extra_values["apolo_app_id"]))
+
         helm_values: dict[str, t.Any] = {
-            "apolo_app_id": extra_values["apolo_app_id"],
+            "apolo_app_id": canonical_app_id,
             "ingress": _build_ingress(extra_values),
-            "fullnameOverride": f"{FULLNAME_PREFIX}-{app_id[:16]}",
+            "fullnameOverride": f"{FULLNAME_PREFIX}-{canonical_app_id[:16]}",
             "dataStorage": _build_persistence(input_),
             "replica": _build_replication(input_.main_app_config),
             "image": {
