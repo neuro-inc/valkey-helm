@@ -66,35 +66,6 @@ class ValkeyVolume(AbstractAppFieldType):
     )
 
 
-class MainApplicationConfig(AbstractAppFieldType):
-    model_config = ConfigDict(
-        protected_namespaces=(),
-        json_schema_extra=SchemaExtraMetadata(
-            title="Main Application Configuration",
-            description="Configure the primary Valkey service that handles core "
-            "data storage functionality, processes requests, and "
-            "manages the core infrastructure.",
-        ).as_json_schema_extra(),
-    )
-    preset: Preset = Field(
-        ...,
-        json_schema_extra=SchemaExtraMetadata(
-            title="Main Application preset",
-            description="Select the resource preset used for the Valkey instance. "
-            "Minimal resources: 0.1 CPU cores, 128 MiB memory.",
-        ).as_json_schema_extra(),
-    )
-    docker_image_config: ContainerImage | None = Field(
-        default=None,
-        json_schema_extra=SchemaExtraMetadata(
-            title="Docker Image Config",
-            description="Override container image for Valkey.",
-            is_advanced_field=True,
-        ).as_json_schema_extra(),
-    )
-    persistence: ValkeyVolume | None = Field(default=ValkeyVolume())
-
-
 class ValkeyArchitectureTypes(enum.StrEnum):
     STANDALONE = "standalone"
     REPLICATION = "replication"
@@ -140,18 +111,14 @@ class ValkeyReplicationArchitecture(ValkeyArchitecture):
 ValkeyArchs = ValkeyStandaloneArchitecture | ValkeyReplicationArchitecture
 
 
-class ValkeyConfig(AbstractAppFieldType):
+class MainApplicationConfig(AbstractAppFieldType):
     model_config = ConfigDict(
         protected_namespaces=(),
         json_schema_extra=SchemaExtraMetadata(
-            title="Valkey/Redis Configuration",
-            description=(
-                "Top-level Valkey configuration. Configure the main application "
-                "preset and deployment architecture (standalone or replication). "
-                "When using replication, set replica presets and persistence "
-                "options. These settings are used to generate the Helm values "
-                "for deploying Valkey."
-            ),
+            title="Main Application Configuration",
+            description="Configure the primary Valkey service that handles core "
+            "data storage functionality, processes requests, and "
+            "manages the core infrastructure.",
         ).as_json_schema_extra(),
     )
     preset: Preset = Field(
@@ -162,13 +129,20 @@ class ValkeyConfig(AbstractAppFieldType):
             "Minimal resources: 0.1 CPU cores, 128 MiB memory.",
         ).as_json_schema_extra(),
     )
+    docker_image_config: ContainerImage | None = Field(
+        default=None,
+        json_schema_extra=SchemaExtraMetadata(
+            title="Docker Image Config",
+            description="Override container image for Valkey.",
+            is_advanced_field=True,
+        ).as_json_schema_extra(),
+    )
     persistence: ValkeyVolume | None = Field(default=ValkeyVolume())
     architecture: ValkeyArchs
 
 
 class ValkeyAppInputs(AppInputs):
     main_app_config: MainApplicationConfig
-    valkey_config: ValkeyConfig
     networking: BasicNetworkingConfig = Field(
         default_factory=BasicNetworkingConfig,
         json_schema_extra=SchemaExtraMetadata(

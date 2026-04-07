@@ -35,7 +35,7 @@ def _generate_secret_key() -> str:
 def _resolve_image_tag(input_: ValkeyAppInputs) -> str:
     return (
         os.getenv("VALKEY_IMAGE_TAG")
-        or getattr(input_.valkey_config, "server_version", None)
+        or getattr(input_.main_app_config, "server_version", None)
         or DEFAULT_SERVER_VERSION
     )
 
@@ -55,7 +55,7 @@ def _build_optional_values(extra_values: dict[str, t.Any]) -> dict[str, t.Any]:
 
 
 def _build_persistence(input_: ValkeyAppInputs) -> dict[str, t.Any]:
-    persistence = input_.valkey_config.persistence
+    persistence = input_.main_app_config.persistence
     if not persistence:
         return {"enabled": False}
 
@@ -120,7 +120,7 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
     ) -> dict[str, t.Any]:
         extra_values = await _gen_common_extra_values(
             apolo_client=self.client,
-            preset_type=input_.valkey_config.preset,
+            preset_type=input_.main_app_config.preset,
             app_id=app_id,
             app_type=AppType.Valkey,
             namespace=namespace,
@@ -132,7 +132,7 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
             "ingress": _build_ingress(extra_values),
             "fullnameOverride": f"{FULLNAME_PREFIX}-{app_id[:16]}",
             "dataStorage": _build_persistence(input_),
-            "replica": _build_replication(input_.valkey_config),
+            "replica": _build_replication(input_.main_app_config),
             "image": {
                 "repository": REPOSITORY_NAME,
                 "pullPolicy": PULL_POLICY,

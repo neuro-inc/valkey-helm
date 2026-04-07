@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 import yaml
 from apolo_apps_valkey.app_types import (
+    MainApplicationConfig,
     ValkeyAppInputs,
     ValkeyArchitectureTypes,
-    ValkeyConfig,
     ValkeyReplicationArchitecture,
     ValkeyStandaloneArchitecture,
 )
@@ -71,7 +71,7 @@ def chart_path():
 def basic_inputs_with_valkey_standalone():
     """Create ValkeyAppInputs with Valkey standalone architecture."""
     return ValkeyAppInputs(
-        valkey_config=ValkeyConfig(
+        main_app_config=MainApplicationConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
                 architecture_type=ValkeyArchitectureTypes.STANDALONE
@@ -85,7 +85,7 @@ def basic_inputs_with_valkey_standalone():
 def inputs_with_valkey_replication():
     """Create ValkeyAppInputs with Valkey replication architecture."""
     return ValkeyAppInputs(
-        valkey_config=ValkeyConfig(
+        main_app_config=MainApplicationConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyReplicationArchitecture(
                 architecture_type=ValkeyArchitectureTypes.REPLICATION,
@@ -106,7 +106,7 @@ def inputs_with_valkey_replication():
 def inputs_with_postgres():
     """Create ValkeyAppInputs with PostgreSQL database."""
     return ValkeyAppInputs(
-        valkey_config=ValkeyConfig(
+        main_app_config=MainApplicationConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
                 architecture_type=ValkeyArchitectureTypes.STANDALONE
@@ -313,7 +313,7 @@ async def test_helm_lint_with_generated_values(
 def inputs_with_persistence_none():
     """Create ValkeyAppInputs with persistence=None."""
     return ValkeyAppInputs(
-        valkey_config=ValkeyConfig(
+        main_app_config=MainApplicationConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
                 architecture_type=ValkeyArchitectureTypes.STANDALONE
@@ -327,7 +327,7 @@ def inputs_with_persistence_none():
 def inputs_with_custom_persistence_path():
     """Create ValkeyAppInputs with custom persistence path."""
     return ValkeyAppInputs(
-        valkey_config=ValkeyConfig(
+        main_app_config=MainApplicationConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
                 architecture_type=ValkeyArchitectureTypes.STANDALONE
