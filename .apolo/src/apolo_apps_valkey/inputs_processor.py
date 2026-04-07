@@ -1,6 +1,7 @@
 import copy
 import logging
 import os
+import secrets
 import typing as t
 
 from apolo_app_types.app_types import AppType
@@ -24,14 +25,11 @@ VALKEY_PORT = 6379
 SERVICE_TYPE = "ClusterIP"
 PULL_POLICY = "IfNotPresent"
 DATA_VOLUME_NAME = "valkey-data"
+AUTH_DEFAULT_PERMISSIONS = "~* &* +@all"
 
 
-def _resolve_app_type() -> AppType:
-    for name in ("VALKEY", "Valkey", "VALKEY_APP"):
-        if hasattr(AppType, name):
-            return getattr(AppType, name)
-    msg = "Valkey AppType is not defined"
-    raise ValueError(msg)
+def _generate_secret_key() -> str:
+    return f"{FULLNAME_PREFIX}-{secrets.token_hex(8)}"
 
 
 def _resolve_image_tag(input_: ValkeyAppInputs) -> str:
@@ -97,6 +95,18 @@ def _build_ingress(extra_values: dict[str, t.Any]) -> dict[str, t.Any]:
     return ingress
 
 
+def _build_auth() -> dict[str, t.Any]:
+    return {
+        "enabled": True,
+        "aclUsers": {
+            "default": {
+                "permissions": AUTH_DEFAULT_PERMISSIONS,
+                "password": _generate_secret_key(),
+            }
+        },
+    }
+
+
 class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
     async def gen_extra_values(
         self,
@@ -112,7 +122,7 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
             apolo_client=self.client,
             preset_type=input_.main_app_config.preset,
             app_id=app_id,
-            app_type=_resolve_app_type(),
+            app_type=AppType.Valkey,
             namespace=namespace,
             ingress_http=input_.networking.ingress_http,
         )
@@ -122,7 +132,7 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
             "ingress": _build_ingress(extra_values),
             "fullnameOverride": f"{FULLNAME_PREFIX}-{app_id[:16]}",
             "dataStorage": _build_persistence(input_),
-            "replica": _build_replication(input_.valkey_config),
+            "replica": _build_replication(input_.main_app_config),
             "image": {
                 "repository": REPOSITORY_NAME,
                 "pullPolicy": PULL_POLICY,
@@ -133,7 +143,7 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
                 "port": VALKEY_PORT,
                 "annotations": {},
             },
-            "auth": {"enabled": False},
+            "auth": _build_auth(),
             "labels": {"application": "valkey"},
         }
 

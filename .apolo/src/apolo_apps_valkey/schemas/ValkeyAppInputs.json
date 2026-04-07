@@ -282,10 +282,22 @@
             },
             "__type__": "ValkeyVolume"
           }
+        },
+        "architecture": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ValkeyStandaloneArchitecture"
+            },
+            {
+              "$ref": "#/$defs/ValkeyReplicationArchitecture"
+            }
+          ],
+          "title": "Architecture"
         }
       },
       "required": [
-        "preset"
+        "preset",
+        "architecture"
       ],
       "title": "MainApplicationConfig",
       "type": "object",
@@ -338,55 +350,6 @@
       "x-meta-type": "inline",
       "x-title": "Resource Preset",
       "x-type": "Preset"
-    },
-    "ValkeyConfig": {
-      "properties": {
-        "preset": {
-          "$ref": "#/$defs/Preset",
-          "x-description": "Select the resource preset used for the Valkey instance. Minimal resources: 0.1 CPU cores, 128 MiB memory.",
-          "x-title": "Main Application preset"
-        },
-        "persistence": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ValkeyVolume"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": {
-            "storage_mount": {
-              "__type__": "ApoloFilesPath",
-              "path": "storage:.apps/valkey/valkey-app"
-            },
-            "__type__": "ValkeyVolume"
-          }
-        },
-        "architecture": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ValkeyStandaloneArchitecture"
-            },
-            {
-              "$ref": "#/$defs/ValkeyReplicationArchitecture"
-            }
-          ],
-          "title": "Architecture"
-        }
-      },
-      "required": [
-        "preset",
-        "architecture"
-      ],
-      "title": "ValkeyConfig",
-      "type": "object",
-      "x-description": "Top-level Valkey configuration. Configure the main application preset and deployment architecture (standalone or replication). When using replication, set replica presets and persistence options. These settings are used to generate the Helm values for deploying Valkey.",
-      "x-is-advanced-field": false,
-      "x-is-configurable": true,
-      "x-meta-type": "inline",
-      "x-title": "Valkey/Redis Configuration",
-      "x-type": "ValkeyConfig"
     },
     "ValkeyReplicationArchitecture": {
       "properties": {
@@ -460,17 +423,13 @@
     "main_app_config": {
       "$ref": "#/$defs/MainApplicationConfig"
     },
-    "valkey_config": {
-      "$ref": "#/$defs/ValkeyConfig"
-    },
     "networking": {
       "$ref": "#/$defs/BasicNetworkingConfig",
       "x-description": "Configure network access, HTTP authentication, and related connectivity options."
     }
   },
   "required": [
-    "main_app_config",
-    "valkey_config"
+    "main_app_config"
   ],
   "title": "ValkeyAppInputs",
   "type": "object"

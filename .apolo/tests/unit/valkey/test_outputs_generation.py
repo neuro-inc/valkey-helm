@@ -13,6 +13,16 @@ async def test_valkey_outputs_generation(
             "tag": "9.0.1",
         },
         "labels": {"application": "valkey"},
+        "fullnameOverride": f"valkey-{app_instance_id[:16]}",
+        "auth": {
+            "enabled": True,
+            "aclUsers": {
+                "default": {
+                    "permissions": "~* &* +@all",
+                    "password": "test-secret-key",
+                }
+            },
+        },
     }
 
     outputs = await output_processor.generate_outputs(

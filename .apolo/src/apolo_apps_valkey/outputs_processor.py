@@ -1,6 +1,6 @@
 import logging
 import typing as t
-from typing import cast
+from collections.abc import Mapping
 
 from apolo_app_types.outputs.base import BaseAppOutputsProcessor
 from apolo_app_types.protocols.common import ApoloSecret
@@ -11,93 +11,105 @@ from apolo_apps_valkey.app_types import ValkeyAppOutputs
 logger = logging.getLogger(__name__)
 
 VALKEY_PORT = 6379
-SECRET_KEY = "valkey.password"
+FULLNAME_PREFIX = "valkey"
 
 
-def build_connection_info(
-    host: str | None,
-    password: str | None,
-) -> dict[str, t.Any] | None:
-    if not host or not password:
-        return None
+def _get_host(helm_values: Mapping[str, t.Any], app_instance_id: str) -> str:
+    fullname_override = helm_values.get("fullnameOverride")
+    if isinstance(fullname_override, str) and fullname_override:
+        return fullname_override
 
+    return f"{FULLNAME_PREFIX}-{app_instance_id}"
+
+
+def _resolve_auth(helm_values: Mapping[str, t.Any]) -> tuple[str, str | None]:
+    connection_secret = helm_values.get("connectionSecret")
+    if isinstance(connection_secret, dict):
+        password = connection_secret.get("password")
+        if isinstance(password, str) and password:
+            return password, None
+
+    auth = helm_values.get("auth")
+    if isinstance(auth, dict):
+        acl_users = auth.get("aclUsers")
+        if isinstance(acl_users, dict):
+            default_user = acl_users.get("default")
+            if isinstance(default_user, dict):
+                password = default_user.get("password")
+                username = default_user.get("username", "default")
+                if isinstance(password, str) and password:
+                    return password, username
+
+    msg = (
+        "helm_values must include connectionSecret.password or "
+        "auth.aclUsers.default.password"
+    )
+    raise ValueError(msg)
+
+
+def _build_connection_info(
+        host: str,
+        password: str,
+        username: str | None,
+) -> dict[str, t.Any]:
     return {
         "host": host,
         "port": VALKEY_PORT,
-        "user": "",
-        "password": {"key": SECRET_KEY},
+        "user": username or "",
+        "password": ApoloSecret(key=password),
     }
 
 
-async def build_uri(
-    host: str | None,
-    password: str | None,
+async def _build_uri(
+        host: str,
+        secret_key: str,
+        username: str | None,
 ) -> str | None:
-    if not host or not password:
-        return None
-
     try:
         api = RESPApi(
             host=host,
             port=VALKEY_PORT,
-            password=cast(
-                ApoloSecret,
-                {"key": SECRET_KEY, "value": password},
-            ),
+            user=username or "",
+            password=ApoloSecret(key=secret_key),
         )
-
         return await api.resp_uri()
-
     except Exception:
-        logger.exception("Failed to build RESP URI")
+        logger.exception("Failed to build RESP URI for host %r", host)
         return None
 
 
-async def get_valkey_outputs(
-    helm_values: dict[str, t.Any],
-    app_instance_id: str,
+def _get_valkey_outputs(
+        host: str,
+        password: str,
+        username: str | None,
 ) -> ValkeyAppOutputs:
-    release_name = f"valkey-{app_instance_id}"
-    internal_host = release_name
-
-    password: str | None = helm_values.get("auth", {}).get("password")
-
-    external_host: str | None = None
-    if helm_values.get("service", {}).get("type") == "LoadBalancer":
-        external_host = helm_values.get("service", {}).get("externalIP")
-
     return ValkeyAppOutputs(
-        internal_connection=build_connection_info(internal_host, password),
-        external_connection=build_connection_info(external_host, password),
+        connection=_build_connection_info(host, password, username),
     )
 
 
 class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
     async def _generate_outputs(
         self,
-        helm_values: dict[str, t.Any],
+            helm_values: dict[str, t.Any],  # kept for interface compatibility
         app_instance_id: str,
     ) -> ValkeyAppOutputs:
-        return await get_valkey_outputs(helm_values, app_instance_id)
+        host = _get_host(helm_values, app_instance_id)
+        password, username = _resolve_auth(helm_values)
+
+        return _get_valkey_outputs(host, password, username)
 
     async def generate_outputs(
         self,
         helm_values: dict[str, t.Any],
         app_instance_id: str,
     ) -> dict[str, t.Any]:
-        outputs = await self._generate_outputs(helm_values, app_instance_id)
+        host = _get_host(helm_values, app_instance_id)
+        password, username = _resolve_auth(helm_values)
 
-        password: str | None = helm_values.get("auth", {}).get("password")
-        release_name = f"valkey-{app_instance_id}"
-        internal_host = release_name
+        outputs = _get_valkey_outputs(host, password, username)
 
-        external_host: str | None = None
-        if helm_values.get("service", {}).get("type") == "LoadBalancer":
-            external_host = helm_values.get("service", {}).get("externalIP")
-
-        uri = await build_uri(internal_host, password)
-        if not uri:
-            uri = await build_uri(external_host, password)
+        uri = await _build_uri(host, password, username)
 
         return {
             "uri": uri,
