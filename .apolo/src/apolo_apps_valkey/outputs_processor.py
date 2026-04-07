@@ -1,6 +1,5 @@
 import logging
 import typing as t
-from collections.abc import Mapping
 
 from apolo_app_types.outputs.base import BaseAppOutputsProcessor
 from apolo_app_types.protocols.common import ApoloSecret
@@ -14,7 +13,7 @@ VALKEY_PORT = 6379
 FULLNAME_PREFIX = "valkey"
 
 
-def _get_host(helm_values: Mapping[str, t.Any], app_instance_id: str) -> str:
+def _get_host(helm_values: dict[str, t.Any], app_instance_id: str) -> str:
     fullname_override = helm_values.get("fullnameOverride")
     if isinstance(fullname_override, str) and fullname_override:
         return fullname_override
@@ -22,7 +21,7 @@ def _get_host(helm_values: Mapping[str, t.Any], app_instance_id: str) -> str:
     return f"{FULLNAME_PREFIX}-{app_instance_id}"
 
 
-def _resolve_auth(helm_values: Mapping[str, t.Any]) -> tuple[str, str | None]:
+def _resolve_auth(helm_values: dict[str, t.Any]) -> tuple[str, str | None]:
     connection_secret = helm_values.get("connectionSecret")
     if isinstance(connection_secret, dict):
         password = connection_secret.get("password")
@@ -64,6 +63,7 @@ async def _build_uri(
     host: str,
     secret_key: str,
     username: str | None,
+    client: t.Any = None,
 ) -> str | None:
     try:
         api = RESPApi(
@@ -71,6 +71,7 @@ async def _build_uri(
             port=VALKEY_PORT,
             user=username or "",
             password=ApoloSecret(key=secret_key),
+            client=client,
         )
         return await api.resp_uri()
     except Exception:
@@ -91,8 +92,9 @@ def _get_valkey_outputs(
 class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
     async def _generate_outputs(
         self,
-        helm_values: dict[str, t.Any],  # kept for interface compatibility
+        helm_values: dict[str, t.Any],
         app_instance_id: str,
+        client: t.Any = None,
     ) -> ValkeyAppOutputs:
         host = _get_host(helm_values, app_instance_id)
         password, username = _resolve_auth(helm_values)
@@ -103,13 +105,14 @@ class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
         self,
         helm_values: dict[str, t.Any],
         app_instance_id: str,
+        client: t.Any = None,  # type annotation added
     ) -> dict[str, t.Any]:
         host = _get_host(helm_values, app_instance_id)
         password, username = _resolve_auth(helm_values)
 
         outputs = _get_valkey_outputs(host, password, username)
 
-        uri = await _build_uri(host, password, username)
+        uri = await _build_uri(host, password, username, client=client)
 
         return {
             "uri": uri,
