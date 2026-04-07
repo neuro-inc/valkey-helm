@@ -243,6 +243,59 @@
       "x-title": "Enable HTTP Ingress",
       "x-type": "IngressHttp"
     },
+    "MainApplicationConfig": {
+      "properties": {
+        "preset": {
+          "$ref": "#/$defs/Preset",
+          "x-description": "Select the resource preset used for the Valkey instance. Minimal resources: 0.1 CPU cores, 128 MiB memory.",
+          "x-title": "Main Application preset"
+        },
+        "docker_image_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContainerImage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "x-description": "Override container image for Valkey.",
+          "x-is-advanced-field": true,
+          "x-is-configurable": true,
+          "x-meta-type": "inline",
+          "x-title": "Docker Image Config"
+        },
+        "persistence": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ValkeyVolume"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": {
+            "storage_mount": {
+              "__type__": "ApoloFilesPath",
+              "path": "storage:.apps/valkey/valkey-app"
+            },
+            "__type__": "ValkeyVolume"
+          }
+        }
+      },
+      "required": [
+        "preset"
+      ],
+      "title": "MainApplicationConfig",
+      "type": "object",
+      "x-description": "Configure the primary Valkey service that handles core data storage functionality, processes requests, and manages the core infrastructure.",
+      "x-is-advanced-field": false,
+      "x-is-configurable": true,
+      "x-meta-type": "inline",
+      "x-title": "Main Application Configuration",
+      "x-type": "MainApplicationConfig"
+    },
     "NoAuth": {
       "properties": {
         "type": {
@@ -293,22 +346,6 @@
           "x-description": "Select the resource preset used for the Valkey instance. Minimal resources: 0.1 CPU cores, 128 MiB memory.",
           "x-title": "Main Application preset"
         },
-        "docker_image_config": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ContainerImage"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "x-description": "Override container image for Valkey.",
-          "x-is-advanced-field": true,
-          "x-is-configurable": true,
-          "x-meta-type": "inline",
-          "x-title": "Docker Image Config"
-        },
         "persistence": {
           "anyOf": [
             {
@@ -348,7 +385,7 @@
       "x-is-advanced-field": false,
       "x-is-configurable": true,
       "x-meta-type": "inline",
-      "x-title": "Main Application Configuration",
+      "x-title": "Valkey/Redis Configuration",
       "x-type": "ValkeyConfig"
     },
     "ValkeyReplicationArchitecture": {
@@ -420,6 +457,9 @@
     }
   },
   "properties": {
+    "main_app_config": {
+      "$ref": "#/$defs/MainApplicationConfig"
+    },
     "valkey_config": {
       "$ref": "#/$defs/ValkeyConfig"
     },
@@ -429,6 +469,7 @@
     }
   },
   "required": [
+    "main_app_config",
     "valkey_config"
   ],
   "title": "ValkeyAppInputs",
