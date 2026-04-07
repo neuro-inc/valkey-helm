@@ -31,6 +31,16 @@ def _resolve_auth(helm_values: dict[str, t.Any]) -> tuple[str, str | None]:
 
     auth = helm_values.get("auth")
     if isinstance(auth, dict):
+        # Legacy support: allow auth["password"]
+        legacy_password = auth.get("password")
+        if isinstance(legacy_password, str) and legacy_password:
+            # Log a warning for legacy usage
+            logger.warning(
+                "Using legacy auth.password field; please migrate to "
+                "auth.aclUsers.default.password"
+            )
+            return legacy_password, VALKEY_USER
+
         acl_users = auth.get("aclUsers")
         if isinstance(acl_users, dict):
             default_user = acl_users.get(VALKEY_USER)
@@ -41,9 +51,10 @@ def _resolve_auth(helm_values: dict[str, t.Any]) -> tuple[str, str | None]:
                     return password, username
 
     msg = (
-        "helm_values must include connectionSecret.password or "
-        "auth.aclUsers.default.password"
+        f"helm_values must include connectionSecret.password or "
+        f"auth.aclUsers.default.password. Got: {helm_values}"
     )
+    logger.error(msg)
     raise ValueError(msg)
 
 
@@ -121,19 +132,25 @@ class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
         app_instance_id: str,
         client: t.Any = None,  # type annotation added
     ) -> dict[str, t.Any]:
-        host = _get_host(helm_values, app_instance_id)
-        password, username = _resolve_auth(helm_values)
-
-        outputs = _get_valkey_outputs(host, password, username)
-
-        uri = await _build_uri(host, password, username, client=client)
-
-        return {
-            "uri": uri,
-            "app_url": None,
-            "host": host,
-            "port": VALKEY_PORT,
-            "user": username or "",
-            "secret_key": password,
-            "raw": outputs.model_dump(),
-        }
+        try:
+            host = _get_host(helm_values, app_instance_id)
+            password, username = _resolve_auth(helm_values)
+            outputs = _get_valkey_outputs(host, password, username)
+            uri = await _build_uri(host, password, username, client=client)
+            return {
+                "uri": uri,
+                "app_url": None,
+                "host": host,
+                "port": VALKEY_PORT,
+                "user": username or "",
+                "secret_key": password,
+                "raw": outputs.model_dump(),
+            }
+        except Exception as exc:
+            logger.exception(
+                "Failed to generate outputs for helm_values=%r app_instance_id=%r: %s",
+                helm_values,
+                app_instance_id,
+                exc,
+            )
+            raise
