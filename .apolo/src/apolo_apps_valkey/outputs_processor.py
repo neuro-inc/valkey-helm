@@ -10,6 +10,7 @@ from apolo_apps_valkey.app_types import ValkeyAppOutputs
 logger = logging.getLogger(__name__)
 
 VALKEY_PORT = 6379
+VALKEY_USER = "default"
 FULLNAME_PREFIX = "valkey"
 
 
@@ -32,10 +33,10 @@ def _resolve_auth(helm_values: dict[str, t.Any]) -> tuple[str, str | None]:
     if isinstance(auth, dict):
         acl_users = auth.get("aclUsers")
         if isinstance(acl_users, dict):
-            default_user = acl_users.get("default")
+            default_user = acl_users.get(VALKEY_USER)
             if isinstance(default_user, dict):
                 password = default_user.get("password")
-                username = default_user.get("username", "default")
+                username = default_user.get("username", VALKEY_USER)
                 if isinstance(password, str) and password:
                     return password, username
 
@@ -65,15 +66,22 @@ async def _build_uri(
     username: str | None,
     client: t.Any = None,
 ) -> str | None:
+    password: ApoloSecret | str = (
+        ApoloSecret(key=secret_key) if client is not None else secret_key
+    )
+    if client is None:
+        logger.debug(
+            "No client provided; building URI with unresolved secret key for host %r",
+            host,
+        )
     try:
         api = RESPApi(
             host=host,
             port=VALKEY_PORT,
             user=username or "",
-            password=ApoloSecret(key=secret_key),
-            client=client,
+            password=password,
         )
-        return await api.resp_uri()
+        return await api.resp_uri(client=client)
     except Exception:
         logger.exception("Failed to build RESP URI for host %r", host)
         return None
@@ -85,6 +93,12 @@ def _get_valkey_outputs(
     username: str | None,
 ) -> ValkeyAppOutputs:
     return ValkeyAppOutputs(
+        redis=RESPApi(
+            host=host,
+            port=VALKEY_PORT,
+            user=username or "",
+            password=ApoloSecret(key=password),
+        ),
         connection=_build_connection_info(host, password, username),
     )
 
@@ -117,5 +131,9 @@ class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
         return {
             "uri": uri,
             "app_url": None,
+            "host": host,
+            "port": VALKEY_PORT,
+            "user": username or "",
+            "secret_key": password,
             "raw": outputs.model_dump(),
         }
