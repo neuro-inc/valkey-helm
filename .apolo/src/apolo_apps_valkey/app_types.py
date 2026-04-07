@@ -159,8 +159,7 @@ class ValkeyConfig(AbstractAppFieldType):
         ...,
         json_schema_extra=SchemaExtraMetadata(
             title="Main Application preset",
-            description="Select the resource preset used for the "
-            "Valkey instance. "
+            description="Select the resource preset used for the Valkey instance. "
             "Minimal resources: 0.1 CPU cores, 128 MiB memory.",
         ).as_json_schema_extra(),
     )
