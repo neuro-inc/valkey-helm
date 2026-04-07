@@ -7,6 +7,9 @@ from apolo_app_types.protocols.resp_api import RESPApi
 from apolo_apps_valkey.app_types import ValkeyAppOutputs
 
 
+logging.basicConfig(level=logging.DEBUG)
+
+
 logger = logging.getLogger(__name__)
 
 VALKEY_PORT = 6379
@@ -153,4 +156,7 @@ class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
                 app_instance_id,
                 exc,
             )
+            import traceback
+
+            traceback.print_exc()
             raise
