@@ -7,9 +7,6 @@ from apolo_app_types.protocols.resp_api import RESPApi
 from apolo_apps_valkey.app_types import ValkeyAppOutputs
 
 
-logging.basicConfig(level=logging.DEBUG)
-
-
 logger = logging.getLogger(__name__)
 
 VALKEY_PORT = 6379
@@ -34,10 +31,8 @@ def _resolve_auth(helm_values: dict[str, t.Any]) -> tuple[str, str | None]:
 
     auth = helm_values.get("auth")
     if isinstance(auth, dict):
-        # Legacy support: allow auth["password"]
         legacy_password = auth.get("password")
         if isinstance(legacy_password, str) and legacy_password:
-            # Log a warning for legacy usage
             logger.warning(
                 "Using legacy auth.password field; please migrate to "
                 "auth.aclUsers.default.password"
@@ -133,7 +128,7 @@ class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
         self,
         helm_values: dict[str, t.Any],
         app_instance_id: str,
-        client: t.Any = None,  # type annotation added
+        client: t.Any = None,
     ) -> dict[str, t.Any]:
         try:
             host = _get_host(helm_values, app_instance_id)
@@ -156,7 +151,4 @@ class ValkeyAppOutputProcessor(BaseAppOutputsProcessor[ValkeyAppOutputs]):
                 app_instance_id,
                 exc,
             )
-            import traceback
-
-            traceback.print_exc()
             raise
