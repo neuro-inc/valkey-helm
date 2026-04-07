@@ -1,11 +1,37 @@
+import pytest
 from apolo_apps_valkey.outputs_processor import ValkeyAppOutputProcessor
 
 
+@pytest.fixture
+def mock_kubernetes_client():
+    # Minimal stub, expand as needed
+    class Dummy:
+        pass
+
+    return Dummy()
+
+
 async def test_valkey_outputs_generation(
-    setup_clients, mock_kubernetes_client, app_instance_id
+    setup_clients, mock_kubernetes_client, app_instance_id, monkeypatch
 ):
     """Test that Valkey output processor generates correct outputs."""
     output_processor = ValkeyAppOutputProcessor()
+
+    # Patch get_services to return a fake service
+    async def fake_get_services(match_labels):
+        return [
+            {
+                "metadata": {
+                    "name": "valkey-main",
+                    "namespace": "default",
+                },
+                "spec": {"ports": [{"port": 6379}]},
+            }
+        ]
+
+    monkeypatch.setattr(
+        "apolo_apps_valkey.outputs_processor.get_services", fake_get_services
+    )
 
     helm_values = {
         "image": {
