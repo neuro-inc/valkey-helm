@@ -17,22 +17,6 @@ async def test_valkey_outputs_generation(
     """Test that Valkey output processor generates correct outputs."""
     output_processor = ValkeyAppOutputProcessor()
 
-    # Patch get_services to return a fake service
-    async def fake_get_services(match_labels):
-        return [
-            {
-                "metadata": {
-                    "name": "valkey-main",
-                    "namespace": "default",
-                },
-                "spec": {"ports": [{"port": 6379}]},
-            }
-        ]
-
-    monkeypatch.setattr(
-        "apolo_apps_valkey.outputs_processor.get_services", fake_get_services
-    )
-
     helm_values = {
         "image": {
             "repository": "valkey/valkey",
@@ -56,28 +40,32 @@ async def test_valkey_outputs_generation(
         app_instance_id=app_instance_id,
     )
 
-    # Verify outputs structure. Depending on how BaseAppOutputsProcessor
-    # serializes the outputs we may get either an object with `uri`
-    # attribute or a dict with keys. Be permissive and assert at least one
-    # valid representation is present.
-    if hasattr(outputs, "uri"):
-        assert outputs.uri is not None
-        assert outputs.uri.startswith("redis://")
-    elif isinstance(outputs, dict):
-        # dict may contain 'uri' or 'app_url' (which can be None when no
-        # external/internal URLs were discovered in the test environment).
-        uri = outputs.get("uri")
-        if uri is not None:
-            assert uri.startswith("redis://")
-        else:
-            # Accept app_url==None (no ingress) or dict containing urls
-            app_url = outputs.get("app_url")
-            if app_url is None:
-                # No URLs discovered in test environment; consider this OK.
-                return
-            assert "internal_url" in app_url
-            assert "external_url" in app_url
-    else:
-        outputs_type = type(outputs)
-        msg = f"Unexpected outputs type: {outputs_type!r}"
-        raise AssertionError(msg)
+    # Updated assertions for ValkeyAppOutputs structure (dict-based)
+    assert "redis" in outputs, "outputs missing 'redis' key"
+    assert "connection" in outputs, "outputs missing 'connection' key"
+    connection = outputs["connection"]
+    assert connection is not None, "outputs['connection'] is None"
+    # connection should have a 'uri' property or enough info to construct it
+    # If 'uri' is not present, reconstruct it from fields
+    uri = connection.get("uri")
+    if uri is None:
+        user = connection.get("user", "default")
+        password = connection.get("password")
+        if isinstance(password, dict):
+            password = password.get("key")
+        host = connection.get("host")
+        port = connection.get("port")
+        creds = f"{user}:{password}" if user else f":{password}"
+        uri = f"redis://{creds}@{host}:{port}"
+    assert isinstance(uri, str), f"uri is not a string: {uri}"
+    assert uri.startswith("redis://"), f"Invalid redis uri: {uri}"
+    # Optionally, check host, port, user, password
+    assert connection["host"].startswith(
+        "valkey-"
+    ), f"Unexpected host: {connection['host']}"
+    assert connection["port"] == 6379, f"Unexpected port: {connection['port']}"
+    assert connection["user"] == "default", f"Unexpected user: {connection['user']}"
+    password = connection["password"]
+    if isinstance(password, dict):
+        password = password.get("key")
+    assert password == "test-secret-key", f"Unexpected password: {password}"

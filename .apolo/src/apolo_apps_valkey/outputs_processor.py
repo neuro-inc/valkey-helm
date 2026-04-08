@@ -1,9 +1,7 @@
 import logging
 import typing as t
 
-from apolo_app_types.clients.kube import get_services
 from apolo_app_types.outputs.base import BaseAppOutputsProcessor
-from apolo_app_types.outputs.common import INSTANCE_LABEL
 from apolo_app_types.protocols.common import ApoloSecret
 from apolo_app_types.protocols.resp_api import RESPApi
 from apolo_apps_valkey.app_types import ValkeyAppOutputs
@@ -16,32 +14,12 @@ VALKEY_USER = "default"
 FULLNAME_PREFIX = "valkey"
 
 
-async def _get_service_endpoints(
-    release_name: str, app_instance_id: str
-) -> tuple[str, int]:
-    services = await get_services(
-        match_labels={
-            "application": release_name,
-            INSTANCE_LABEL: app_instance_id,
-        }
-    )
+def _get_host(helm_values: dict[str, t.Any], app_instance_id: str) -> str:
+    fullname_override = helm_values.get("fullnameOverride")
+    if isinstance(fullname_override, str) and fullname_override:
+        return fullname_override
 
-    host = ""
-    port = 0
-    for service in services:
-        service_name = service["metadata"]["name"]
-        service_host = f"{service_name}.{service['metadata']['namespace']}"
-        service_port = int(service["spec"]["ports"][0]["port"])  # Ensure int
-
-        if service_name.startswith("valkey"):
-            host, port = service_host, service_port
-            break
-
-    if host == "" or port == 0:
-        msg = "Could not find Valkey service endpoints."
-        raise Exception(msg)
-
-    return host, port
+    return f"{FULLNAME_PREFIX}-{app_instance_id}"
 
 
 def _resolve_auth(helm_values: dict[str, t.Any]) -> tuple[str, str]:
@@ -70,19 +48,12 @@ def _resolve_auth(helm_values: dict[str, t.Any]) -> tuple[str, str]:
 async def get_valkey_outputs(
     helm_values: dict[str, t.Any], app_instance_id: str
 ) -> ValkeyAppOutputs:
-    release_name = "valkey"
-
-    try:
-        host, port = await _get_service_endpoints(release_name, app_instance_id)
-    except Exception as e:
-        msg = f"Could not find Valkey services: {e}"
-        raise Exception(msg) from e
-
     username, password = _resolve_auth(helm_values)
+    host = _get_host(helm_values, app_instance_id)
 
     internal_api = RESPApi(
         host=host,
-        port=port,
+        port=VALKEY_PORT,
         user=username,
         password=ApoloSecret(key=password),
     )
@@ -91,7 +62,7 @@ async def get_valkey_outputs(
         redis=internal_api,
         connection={
             "host": host,
-            "port": port,
+            "port": VALKEY_PORT,
             "user": username,
             "password": ApoloSecret(key=password),
         },
