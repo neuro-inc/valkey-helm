@@ -187,3 +187,19 @@ Validate replica authentication configuration
   {{- end }}
 {{- end }}
 {{- end -}}
+
+{{/*
+Return the name to use for the connection Secret (primary)
+Format: <fullname>-connection-secret (where fullname is release + name)
+*/}}
+{{- define "valkey.connectionSecretName" -}}
+{{- printf "%s-connection-secret" (include "valkey.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end -}}
+
+{{/*
+Return the name to use for the replica connection Secret
+Format: <fullname>-connection-secret-replica
+*/}}
+{{- define "valkey.connectionSecretReplicaName" -}}
+{{- printf "%s-connection-secret-replica" (include "valkey.fullname" .) | trunc 63 | trimSuffix "-" }}
+{{- end -}}

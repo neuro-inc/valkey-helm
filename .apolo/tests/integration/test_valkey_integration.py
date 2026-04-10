@@ -11,17 +11,28 @@ from apolo_apps_valkey.app_types import (
     MainApplicationConfig,
     ValkeyAppInputs,
     ValkeyArchitectureTypes,
-    ValkeyConfig,
     ValkeyReplicationArchitecture,
     ValkeyStandaloneArchitecture,
-    ValkeyVolume,
-    WebhookConfig,
-    WorkerConfig,
 )
 from apolo_apps_valkey.inputs_processor import ValkeyAppChartValueProcessor
 
-from apolo_app_types.protocols.common import ApoloFilesPath, AutoscalingHPA, Preset
+from apolo_app_types.protocols.common import AutoscalingHPA, Preset
 from apolo_app_types.protocols.common.ingress import BasicNetworkingConfig
+
+
+@pytest.fixture(autouse=True)
+def _patch_get_apolo_secret(monkeypatch):
+    """Stub apolo_apps_valkey.inputs_processor.get_apolo_secret to an
+    async function returning a deterministic password so integration tests
+    don't rely on the apolo client secrets.get implementation.
+    """
+
+    async def _fake_get_apolo_secret(*args, **kwargs):
+        return "test-password"
+
+    import apolo_apps_valkey.inputs_processor as ip
+
+    monkeypatch.setattr(ip, "get_apolo_secret", _fake_get_apolo_secret)
 
 
 CHART_PATH = Path(__file__).parent.parent.parent.parent / "valkey"
@@ -75,10 +86,7 @@ def chart_path():
 def basic_inputs_with_valkey_standalone():
     """Create ValkeyAppInputs with Valkey standalone architecture."""
     return ValkeyAppInputs(
-        main_app_config=MainApplicationConfig(preset=Preset(name="cpu-small")),
-        worker_config=WorkerConfig(preset=Preset(name="cpu-small"), replicas=2),
-        webhook_config=WebhookConfig(preset=Preset(name="cpu-small"), replicas=1),
-        valkey_config=ValkeyConfig(
+        main_app_config=MainApplicationConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
                 architecture_type=ValkeyArchitectureTypes.STANDALONE
@@ -93,17 +101,6 @@ def inputs_with_valkey_replication():
     """Create ValkeyAppInputs with Valkey replication architecture."""
     return ValkeyAppInputs(
         main_app_config=MainApplicationConfig(
-            preset=Preset(name="cpu-small"),
-            replica_scaling=AutoscalingHPA(
-                min_replicas=1,
-                max_replicas=5,
-                target_cpu_utilization_percentage=80,
-                target_memory_utilization_percentage=80,
-            ),
-        ),
-        worker_config=WorkerConfig(preset=Preset(name="cpu-small"), replicas=2),
-        webhook_config=WebhookConfig(preset=Preset(name="cpu-small"), replicas=1),
-        valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyReplicationArchitecture(
                 architecture_type=ValkeyArchitectureTypes.REPLICATION,
@@ -124,10 +121,7 @@ def inputs_with_valkey_replication():
 def inputs_with_postgres():
     """Create ValkeyAppInputs with PostgreSQL database."""
     return ValkeyAppInputs(
-        main_app_config=MainApplicationConfig(preset=Preset(name="cpu-small")),
-        worker_config=WorkerConfig(preset=Preset(name="cpu-small"), replicas=2),
-        webhook_config=WebhookConfig(preset=Preset(name="cpu-small"), replicas=1),
-        valkey_config=ValkeyConfig(
+        main_app_config=MainApplicationConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
                 architecture_type=ValkeyArchitectureTypes.STANDALONE
@@ -207,11 +201,11 @@ async def test_helm_template_with_generated_values_standalone(
     assert helm_values["apolo_app_id"] == "test-app-id"
     assert "ingress" in helm_values
     assert helm_values["ingress"]["enabled"] is True
-    assert helm_values["image"]["repository"] == "bitnamilegacy/valkey"
+    assert helm_values["image"]["repository"] == "valkey/valkey"
     assert helm_values["labels"] == {"application": "valkey"}
     assert "service" in helm_values
     assert helm_values["service"]["port"] == 6379
-    assert helm_values["auth"]["enabled"] is False
+    assert helm_values["auth"]["enabled"] is True
     assert "resources" in helm_values
     assert "replica" in helm_values
 
@@ -335,11 +329,6 @@ def inputs_with_persistence_none():
     """Create ValkeyAppInputs with persistence=None."""
     return ValkeyAppInputs(
         main_app_config=MainApplicationConfig(
-            preset=Preset(name="cpu-small"), persistence=None
-        ),
-        worker_config=WorkerConfig(preset=Preset(name="cpu-small"), replicas=2),
-        webhook_config=WebhookConfig(preset=Preset(name="cpu-small"), replicas=1),
-        valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
                 architecture_type=ValkeyArchitectureTypes.STANDALONE
@@ -354,16 +343,6 @@ def inputs_with_custom_persistence_path():
     """Create ValkeyAppInputs with custom persistence path."""
     return ValkeyAppInputs(
         main_app_config=MainApplicationConfig(
-            preset=Preset(name="cpu-small"),
-            persistence=ValkeyVolume(
-                storage_mount=ApoloFilesPath(
-                    path="storage://test-cluster/custom/valkey/data"
-                )
-            ),
-        ),
-        worker_config=WorkerConfig(preset=Preset(name="cpu-small"), replicas=2),
-        webhook_config=WebhookConfig(preset=Preset(name="cpu-small"), replicas=1),
-        valkey_config=ValkeyConfig(
             preset=Preset(name="cpu-small"),
             architecture=ValkeyStandaloneArchitecture(
                 architecture_type=ValkeyArchitectureTypes.STANDALONE
