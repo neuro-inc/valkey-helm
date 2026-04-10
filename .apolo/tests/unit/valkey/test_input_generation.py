@@ -17,6 +17,21 @@ from apolo_app_types.protocols.common import AutoscalingHPA, Preset
 from apolo_app_types.protocols.common.ingress import BasicNetworkingConfig
 
 
+@pytest.fixture(autouse=True)
+def _patch_get_apolo_secret(monkeypatch):
+    """Ensure get_apolo_secret used by the inputs processor is an async
+    stub that returns a deterministic password so tests don't call out to
+    external services and to avoid coroutine-not-awaited warnings.
+    """
+
+    async def _fake_get_apolo_secret(*args, **kwargs):
+        return "test-password"
+
+    import apolo_apps_valkey.inputs_processor as ip
+
+    monkeypatch.setattr(ip, "get_apolo_secret", _fake_get_apolo_secret)
+
+
 @pytest.fixture
 def basic_valkey_inputs():
     return ValkeyAppInputs(

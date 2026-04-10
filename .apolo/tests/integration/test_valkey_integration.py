@@ -20,6 +20,21 @@ from apolo_app_types.protocols.common import AutoscalingHPA, Preset
 from apolo_app_types.protocols.common.ingress import BasicNetworkingConfig
 
 
+@pytest.fixture(autouse=True)
+def _patch_get_apolo_secret(monkeypatch):
+    """Stub apolo_apps_valkey.inputs_processor.get_apolo_secret to an
+    async function returning a deterministic password so integration tests
+    don't rely on the apolo client secrets.get implementation.
+    """
+
+    async def _fake_get_apolo_secret(*args, **kwargs):
+        return "test-password"
+
+    import apolo_apps_valkey.inputs_processor as ip
+
+    monkeypatch.setattr(ip, "get_apolo_secret", _fake_get_apolo_secret)
+
+
 CHART_PATH = Path(__file__).parent.parent.parent.parent / "valkey"
 
 

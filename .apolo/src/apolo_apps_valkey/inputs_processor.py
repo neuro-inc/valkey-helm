@@ -1,14 +1,18 @@
 import copy
 import logging
 import os
-import secrets
+import random
+import string
 import typing as t
+
+import apolo_sdk
 
 from apolo_app_types.app_types import AppType
 from apolo_app_types.helm.apps.base import BaseChartValueProcessor
 from apolo_app_types.helm.apps.common import (
     gen_extra_values as _gen_common_extra_values,
 )
+from apolo_app_types.outputs.utils.apolo_secrets import get_apolo_secret
 from apolo_apps_valkey.app_types import (
     ValkeyAppInputs,
     ValkeyArchitectureTypes,
@@ -26,10 +30,17 @@ SERVICE_TYPE = "ClusterIP"
 PULL_POLICY = "IfNotPresent"
 DATA_VOLUME_NAME = "valkey-data"
 AUTH_DEFAULT_PERMISSIONS = "~* &* +@all"
+PASSWORD_CHAR_POOL = string.ascii_letters + string.digits
+PASSWORD_DEFAULT_LENGTH = 12
+PASSWORD_MIN_LENGTH = 4
 
 
-def _generate_secret_key() -> str:
-    return f"{FULLNAME_PREFIX}-{secrets.token_hex(8)}"
+def _generate_password(length: int = PASSWORD_DEFAULT_LENGTH) -> str:
+    if length < PASSWORD_MIN_LENGTH:
+        err_msg = f"Password length must be at least {PASSWORD_MIN_LENGTH}"
+        raise ValueError(err_msg)
+
+    return "".join([random.choice(PASSWORD_CHAR_POOL) for _ in range(length)])
 
 
 def _resolve_image_tag(input_: ValkeyAppInputs) -> str:
@@ -95,13 +106,20 @@ def _build_ingress(extra_values: dict[str, t.Any]) -> dict[str, t.Any]:
     return ingress
 
 
-def _build_auth() -> dict[str, t.Any]:
+async def _build_auth(app_id: str) -> dict[str, t.Any]:
+    try:
+        keycloak_password = await get_apolo_secret(
+            app_instance_id=app_id, key=f"{FULLNAME_PREFIX}-password"
+        )
+    except apolo_sdk.ResourceNotFound:
+        keycloak_password = _generate_password()
+
     return {
         "enabled": True,
         "aclUsers": {
             "default": {
                 "permissions": AUTH_DEFAULT_PERMISSIONS,
-                "password": _generate_secret_key(),
+                "password": keycloak_password,
             }
         },
     }
@@ -143,7 +161,7 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
                 "port": VALKEY_PORT,
                 "annotations": {},
             },
-            "auth": _build_auth(),
+            "auth": await _build_auth(app_id),
             "labels": {"application": "valkey"},
         }
 
