@@ -86,6 +86,81 @@
       "x-title": "Networking Settings",
       "x-type": "BasicNetworkingConfig"
     },
+    "ContainerImage": {
+      "properties": {
+        "repository": {
+          "title": "Repository",
+          "type": "string",
+          "x-description": "Choose a repository for the container image.",
+          "x-is-advanced-field": false,
+          "x-is-configurable": true,
+          "x-meta-type": "inline",
+          "x-title": "Container Image Repository"
+        },
+        "tag": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Tag",
+          "x-description": "Choose a tag for the container image.",
+          "x-is-advanced-field": false,
+          "x-is-configurable": true,
+          "x-meta-type": "inline",
+          "x-title": "Container Image Tag"
+        },
+        "dockerconfigjson": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DockerConfigModel"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "x-description": "ImagePullSecrets for DockerHub",
+          "x-is-advanced-field": false,
+          "x-is-configurable": true,
+          "x-meta-type": "integration",
+          "x-title": "ImagePullSecrets for DockerHub"
+        },
+        "pull_policy": {
+          "$ref": "#/$defs/ContainerImagePullPolicy",
+          "default": "IfNotPresent",
+          "x-description": "Specify the pull policy for the container image.",
+          "x-is-advanced-field": false,
+          "x-is-configurable": true,
+          "x-meta-type": "inline",
+          "x-title": "Container Image Pull Policy"
+        }
+      },
+      "required": [
+        "repository"
+      ],
+      "title": "ContainerImage",
+      "type": "object",
+      "x-description": "Container image to be used in application",
+      "x-is-advanced-field": false,
+      "x-is-configurable": true,
+      "x-meta-type": "inline",
+      "x-title": "Container Image",
+      "x-type": "ContainerImage"
+    },
+    "ContainerImagePullPolicy": {
+      "enum": [
+        "Always",
+        "Never",
+        "IfNotPresent"
+      ],
+      "title": "ContainerImagePullPolicy",
+      "type": "string"
+    },
     "CustomAuth": {
       "properties": {
         "type": {
@@ -112,6 +187,30 @@
       "x-meta-type": "inline",
       "x-title": "Custom Authentication",
       "x-type": "CustomAuth"
+    },
+    "DockerConfigModel": {
+      "properties": {
+        "filecontents": {
+          "title": "Filecontents",
+          "type": "string",
+          "x-description": "The contents of the Docker config file.",
+          "x-is-advanced-field": false,
+          "x-is-configurable": true,
+          "x-meta-type": "inline",
+          "x-title": "Docker Config File Contents"
+        }
+      },
+      "required": [
+        "filecontents"
+      ],
+      "title": "DockerConfigModel",
+      "type": "object",
+      "x-description": "Docker configuration content.",
+      "x-is-advanced-field": false,
+      "x-is-configurable": true,
+      "x-meta-type": "integration",
+      "x-title": "Docker Config",
+      "x-type": "DockerConfigModel"
     },
     "IngressHttp": {
       "properties": {
@@ -151,6 +250,22 @@
           "x-description": "Select the resource preset used for the Valkey instance. Minimal resources: 0.1 CPU cores, 128 MiB memory.",
           "x-title": "Main Application preset"
         },
+        "docker_image_config": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ContainerImage"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "x-description": "Override container image for Valkey.",
+          "x-is-advanced-field": true,
+          "x-is-configurable": true,
+          "x-meta-type": "inline",
+          "x-title": "Docker Image Config"
+        },
         "persistence": {
           "anyOf": [
             {
@@ -167,10 +282,22 @@
             },
             "__type__": "ValkeyVolume"
           }
+        },
+        "architecture": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ValkeyStandaloneArchitecture"
+            },
+            {
+              "$ref": "#/$defs/ValkeyReplicationArchitecture"
+            }
+          ],
+          "title": "Architecture"
         }
       },
       "required": [
-        "preset"
+        "preset",
+        "architecture"
       ],
       "title": "MainApplicationConfig",
       "type": "object",
@@ -223,55 +350,6 @@
       "x-meta-type": "inline",
       "x-title": "Resource Preset",
       "x-type": "Preset"
-    },
-    "ValkeyConfig": {
-      "properties": {
-        "preset": {
-          "$ref": "#/$defs/Preset",
-          "x-description": "Select the resource preset used for the Valkey instance. Minimal resources: 0.1 CPU cores, 128 MiB memory.",
-          "x-title": "Main Application preset"
-        },
-        "persistence": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ValkeyVolume"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": {
-            "storage_mount": {
-              "__type__": "ApoloFilesPath",
-              "path": "storage:.apps/valkey/valkey-app"
-            },
-            "__type__": "ValkeyVolume"
-          }
-        },
-        "architecture": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/ValkeyStandaloneArchitecture"
-            },
-            {
-              "$ref": "#/$defs/ValkeyReplicationArchitecture"
-            }
-          ],
-          "title": "Architecture"
-        }
-      },
-      "required": [
-        "preset",
-        "architecture"
-      ],
-      "title": "ValkeyConfig",
-      "type": "object",
-      "x-description": "Top-level Valkey configuration. Configure the main application preset and deployment architecture (standalone or replication). When using replication, set replica presets and persistence options. These settings are used to generate the Helm values for deploying Valkey.",
-      "x-is-advanced-field": false,
-      "x-is-configurable": true,
-      "x-meta-type": "inline",
-      "x-title": "Valkey/Redis Configuration",
-      "x-type": "ValkeyConfig"
     },
     "ValkeyReplicationArchitecture": {
       "properties": {
@@ -345,17 +423,13 @@
     "main_app_config": {
       "$ref": "#/$defs/MainApplicationConfig"
     },
-    "valkey_config": {
-      "$ref": "#/$defs/ValkeyConfig"
-    },
     "networking": {
       "$ref": "#/$defs/BasicNetworkingConfig",
       "x-description": "Configure network access, HTTP authentication, and related connectivity options."
     }
   },
   "required": [
-    "main_app_config",
-    "valkey_config"
+    "main_app_config"
   ],
   "title": "ValkeyAppInputs",
   "type": "object"
