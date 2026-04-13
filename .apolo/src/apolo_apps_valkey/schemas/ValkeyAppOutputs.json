@@ -259,6 +259,17 @@
         }
       ],
       "default": null
+    },
+    "password": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ApoloSecret"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
     }
   },
   "title": "ValkeyAppOutputs",
