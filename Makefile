@@ -39,6 +39,10 @@ test-unit:
 test-integration:
 	poetry run pytest -vv --cov=.apolo --cov-report xml:.coverage.integration.xml .apolo/tests/integration
 
+.PHONY: test-helm
+test-helm:
+	helm unittest ./valkey
+
 .PHONY: build-hook-image
 build-hook-image:
 	docker build \

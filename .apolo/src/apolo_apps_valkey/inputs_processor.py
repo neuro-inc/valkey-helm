@@ -1,10 +1,18 @@
+import copy
 import logging
+import os
+import random
+import string
 import typing as t
-from typing import Any
+
+import apolo_sdk
 
 from apolo_app_types.app_types import AppType
 from apolo_app_types.helm.apps.base import BaseChartValueProcessor
-from apolo_app_types.helm.apps.common import gen_extra_values
+from apolo_app_types.helm.apps.common import (
+    gen_extra_values as _gen_common_extra_values,
+)
+from apolo_app_types.outputs.utils.apolo_secrets import get_apolo_secret
 from apolo_apps_valkey.app_types import (
     ValkeyAppInputs,
     ValkeyArchitectureTypes,
@@ -15,48 +23,109 @@ logger = logging.getLogger(__name__)
 
 # Chart/name constants
 FULLNAME_PREFIX = "valkey"
+DEFAULT_SERVER_VERSION = "9.0.1"
+REPOSITORY_NAME = "valkey/valkey"
+VALKEY_PORT = 6379
+SERVICE_TYPE = "ClusterIP"
+PULL_POLICY = "IfNotPresent"
+DATA_VOLUME_NAME = "valkey-data"
+AUTH_DEFAULT_PERMISSIONS = "~* &* +@all"
+PASSWORD_CHAR_POOL = string.ascii_letters + string.digits
+PASSWORD_DEFAULT_LENGTH = 12
+PASSWORD_MIN_LENGTH = 4
+
+
+def _generate_password(length: int = PASSWORD_DEFAULT_LENGTH) -> str:
+    if length < PASSWORD_MIN_LENGTH:
+        err_msg = f"Password length must be at least {PASSWORD_MIN_LENGTH}"
+        raise ValueError(err_msg)
+
+    return "".join([random.choice(PASSWORD_CHAR_POOL) for _ in range(length)])
+
+
+def _resolve_image_tag(input_: ValkeyAppInputs) -> str:
+    return (
+        os.getenv("VALKEY_IMAGE_TAG")
+        or getattr(input_.main_app_config, "server_version", None)
+        or DEFAULT_SERVER_VERSION
+    )
+
+
+def _build_optional_values(extra_values: dict[str, t.Any]) -> dict[str, t.Any]:
+    defaults = {
+        "extraEnv": [],
+        "podLabels": {},
+        "podAnnotations": {},
+        "commonLabels": {},
+        "resources": {},
+        "tolerations": [],
+        "affinity": {},
+        "priorityClassName": "",
+    }
+    return {k: extra_values.get(k, v) for k, v in defaults.items()}
+
+
+def _build_persistence(input_: ValkeyAppInputs) -> dict[str, t.Any]:
+    persistence = input_.main_app_config.persistence
+    if not persistence:
+        return {"enabled": False}
+
+    return {
+        "enabled": True,
+        "requestedSize": getattr(persistence, "size", "1Gi"),
+        "volumeName": DATA_VOLUME_NAME,
+        "subPath": getattr(persistence, "subPath", None),
+        "persistentVolumeClaimName": getattr(
+            persistence, "persistentVolumeClaimName", None
+        ),
+    }
+
+
+def _build_replication(config: t.Any) -> dict[str, t.Any]:
+    arch = config.architecture
+
+    if arch.architecture_type != ValkeyArchitectureTypes.REPLICATION:
+        return {"enabled": False}
+
+    return {
+        "enabled": True,
+        "replicas": getattr(arch, "replicas", 2),
+        "persistence": {
+            "size": getattr(arch, "persistence_size", "1Gi"),
+            "accessModes": getattr(arch, "persistence_access_modes", ["ReadWriteOnce"]),
+        },
+    }
+
+
+def _build_ingress(extra_values: dict[str, t.Any]) -> dict[str, t.Any]:
+    ingress = copy.deepcopy(extra_values["ingress"])
+
+    for host in ingress.get("hosts", []):
+        host["paths"] = [p["path"] for p in host.get("paths", [])]
+
+    return ingress
+
+
+async def _build_auth(app_id: str) -> dict[str, t.Any]:
+    try:
+        keycloak_password = await get_apolo_secret(
+            app_instance_id=app_id, key=f"{FULLNAME_PREFIX}-password"
+        )
+    except apolo_sdk.ResourceNotFound:
+        keycloak_password = _generate_password()
+
+    return {
+        "enabled": True,
+        "aclUsers": {
+            "default": {
+                "permissions": AUTH_DEFAULT_PERMISSIONS,
+                "password": keycloak_password,
+            }
+        },
+    }
 
 
 class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
-    _port: int = 6379
-
-    def __init__(
-        self,
-        client: Any,
-        *args: t.Any,
-        **kwargs: t.Any,
-    ):
-        super().__init__(client, *args, **kwargs)
-
-    async def get_redis_values(
-        self, input_: ValkeyAppInputs, app_id: str
-    ) -> dict[str, t.Any]:
-        config = input_.valkey_config
-        values = {
-            # Provide a stable fullnameOverride used by the chart. Use the
-            # `FULLNAME_PREFIX` constant to avoid accidental copy/paste from
-            # other applications.
-            "fullnameOverride": f"{FULLNAME_PREFIX}-{app_id[:16]}",
-            "global": {"security": {"allowInsecureImages": True}},
-            "image": {"repository": "bitnamilegacy/valkey"},
-            "auth": {"enabled": False},
-            "architecture": str(config.architecture.architecture_type.value),
-            "primary": {},
-        }
-
-        # Replica mode (replication architecture) — do not generate any autoscaling
-        if config.architecture.architecture_type == ValkeyArchitectureTypes.REPLICATION:
-            replica_config: dict[str, t.Any] = {}
-            replica_config["enabled"] = True
-            replica_config.setdefault("persistence", {})
-            if not replica_config["persistence"].get("size"):
-                replica_config["persistence"]["size"] = "1Gi"
-            if not replica_config["persistence"].get("accessModes"):
-                replica_config["persistence"]["accessModes"] = ["ReadWriteOnce"]
-            replica_config.setdefault("replicas", 2)
-            values["replica"] = replica_config
-        return values
-
     async def gen_extra_values(
         self,
         input_: ValkeyAppInputs,
@@ -67,96 +136,35 @@ class ValkeyAppChartValueProcessor(BaseChartValueProcessor[ValkeyAppInputs]):
         *args: t.Any,
         **kwargs: t.Any,
     ) -> dict[str, t.Any]:
-        extra_values = await gen_extra_values(
-            app_id=app_id,
-            # Attempt to select an appropriate AppType for Valkey. Different
-            # versions of the platform may expose different enum members
-            # (e.g. VALKEY, Valkey, VALKEY_APP). Fall back to N8n only if a
-            # Valkey-like member is not present to preserve backwards
-            # compatibility with older fixtures.
-            app_type=(
-                getattr(AppType, "VALKEY", None)
-                or getattr(AppType, "Valkey", None)
-                or getattr(AppType, "VALKEY_APP", None)
-                or (AppType.N8n if hasattr(AppType, "N8n") else list(AppType)[0])
-            ),
+        extra_values = await _gen_common_extra_values(
             apolo_client=self.client,
             preset_type=input_.main_app_config.preset,
+            app_id=app_id,
+            app_type=AppType.Valkey,
             namespace=namespace,
             ingress_http=input_.networking.ingress_http,
         )
 
-        helm_values = {
+        helm_values: dict[str, t.Any] = {
             "apolo_app_id": extra_values["apolo_app_id"],
-            "ingress": extra_values["ingress"],
-            # `extraEnv` commonly used by charts to inject platform-provided
-            # environment variables; include it from extra_values when
-            # available so unit tests and charts relying on it behave as
-            # expected.
-            "extraEnv": extra_values.get("extraEnv", []),
-            "podLabels": extra_values.get("podLabels", {}),
-            "podAnnotations": extra_values.get("podAnnotations", {}),
-            "commonLabels": extra_values.get("commonLabels", {}),
-            "resources": extra_values.get("resources", {}),
-            "tolerations": extra_values.get("tolerations", []),
-            "affinity": extra_values.get("affinity", {}),
-            "priorityClassName": extra_values.get("priorityClassName", ""),
+            "ingress": _build_ingress(extra_values),
+            "fullnameOverride": f"{FULLNAME_PREFIX}-{app_id[:16]}",
+            "dataStorage": _build_persistence(input_),
+            "replica": _build_replication(input_.main_app_config),
+            "image": {
+                "repository": REPOSITORY_NAME,
+                "pullPolicy": PULL_POLICY,
+                "tag": _resolve_image_tag(input_),
+            },
+            "service": {
+                "type": SERVICE_TYPE,
+                "port": VALKEY_PORT,
+                "annotations": {},
+            },
+            "auth": await _build_auth(app_id),
+            "labels": {"application": "valkey"},
         }
 
-        helm_values["fullnameOverride"] = f"{FULLNAME_PREFIX}-{app_id[:16]}"
-
-        if input_.main_app_config.persistence:
-            persistence = input_.main_app_config.persistence
-            helm_values["dataStorage"] = {
-                "enabled": True,
-                "requestedSize": persistence.size
-                if hasattr(persistence, "size")
-                else "1Gi",
-                "volumeName": "valkey-data",
-                "subPath": getattr(persistence, "subPath", None),
-                "persistentVolumeClaimName": getattr(
-                    persistence, "persistentVolumeClaimName", None
-                ),
-            }
-        else:
-            helm_values["dataStorage"] = {"enabled": False}
-
-        config = input_.valkey_config
-        # Replica mode (replication architecture) — do not generate any autoscaling
-        if config.architecture.architecture_type == ValkeyArchitectureTypes.REPLICATION:
-            replica_config = {
-                "enabled": True,
-                "replicas": getattr(config.architecture, "replicas", 2),
-                "persistence": {
-                    "size": getattr(config.architecture, "persistence_size", "1Gi"),
-                    "accessModes": getattr(
-                        config.architecture,
-                        "persistence_access_modes",
-                        ["ReadWriteOnce"],
-                    ),
-                },
-            }
-            helm_values["replica"] = replica_config
-        else:
-            helm_values["replica"] = {"enabled": False}
-
-        helm_values["image"] = {
-            "repository": "bitnamilegacy/valkey",
-            "pullPolicy": "IfNotPresent",
-        }
-
-        helm_values["service"] = {
-            "type": "ClusterIP",
-            "port": 6379,
-            "annotations": {},
-        }
-
-        helm_values["auth"] = {"enabled": False}
-        helm_values["labels"] = {"application": "valkey"}
-
-        ingress = extra_values["ingress"]
-        for i, host in enumerate(ingress["hosts"]):
-            paths = host["paths"]
-            ingress["hosts"][i]["paths"] = [p["path"] for p in paths]
+        helm_values.update(_build_optional_values(extra_values))
 
         return helm_values
