@@ -2,9 +2,11 @@ import logging
 import typing as t
 
 from apolo_app_types.outputs.base import BaseAppOutputsProcessor
+from apolo_app_types.outputs.utils.apolo_secrets import create_apolo_secret_with_retry
 from apolo_app_types.protocols.common import ApoloSecret
 from apolo_app_types.protocols.resp_api import RESPApi
 from apolo_apps_valkey.app_types import ValkeyAppOutputs
+from apolo_apps_valkey.consts import APP_SECRET_KEYS
 
 
 logger = logging.getLogger(__name__)
@@ -51,6 +53,12 @@ async def get_valkey_outputs(
     username, password = _resolve_auth(helm_values)
     host = _get_host(helm_values, app_instance_id)
 
+    persisted_password = await create_apolo_secret_with_retry(
+        app_instance_id=app_instance_id,
+        key=APP_SECRET_KEYS["VALKEY"],
+        value=password,
+    )
+
     internal_api = RESPApi(
         host=host,
         port=VALKEY_PORT,
@@ -66,6 +74,7 @@ async def get_valkey_outputs(
             "user": username,
             "password": ApoloSecret(key=password),
         },
+        password=persisted_password,
     )
 
 

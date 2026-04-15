@@ -168,3 +168,4 @@ class ValkeyConnectionInfo(AbstractAppFieldType):
 class ValkeyAppOutputs(AppOutputs):
     redis: RESPApi | None = None
     connection: ValkeyConnectionInfo | None = None
+    password: ApoloSecret | None = None
