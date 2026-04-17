@@ -404,6 +404,18 @@ typing-extensions = ">=4.6.0"
 aio = ["azure-core[aio] (>=1.30.0)"]
 
 [[package]]
+name = "backoff"
+version = "2.2.1"
+description = "Function decoration for backoff and retry"
+optional = false
+python-versions = ">=3.7,<4.0"
+groups = ["main"]
+files = [
+    {file = "backoff-2.2.1-py3-none-any.whl", hash = "sha256:63579f9a0628e06278f7e47b7d7d5b6ce20dc65c5e96a6f3ca99a6adca0396e8"},
+    {file = "backoff-2.2.1.tar.gz", hash = "sha256:03f829f5bb1923180821643f8753b0502c3b682293992485b0eef2807afa5cba"},
+]
+
+[[package]]
 name = "backports-zstd"
 version = "1.2.0"
 description = "Backport of compression.zstd"
@@ -3034,4 +3046,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13.0,<4.0"
-content-hash = "3c90c24186c5cb0afa18b512fdfc13894b3c59796465532c5c57e7c3ac114408"
+content-hash = "3ebb6170ca37858c69cf3ee8fec4fa522b4509d9beb50b2f61d6a7a4f012b023"
