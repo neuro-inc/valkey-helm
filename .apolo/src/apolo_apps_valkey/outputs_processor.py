@@ -1,4 +1,5 @@
 import logging
+import os
 import typing as t
 
 from apolo_app_types.outputs.base import BaseAppOutputsProcessor
@@ -50,6 +51,7 @@ def _resolve_auth(helm_values: dict[str, t.Any]) -> tuple[str, str]:
 async def get_valkey_outputs(
     helm_values: dict[str, t.Any], app_instance_id: str
 ) -> ValkeyAppOutputs:
+    os.environ["APOLO_PASSED_CONFIG"] = helm_values["APOLO_PASSED_CONFIG"]
     username, password = _resolve_auth(helm_values)
     host = _get_host(helm_values, app_instance_id)
 

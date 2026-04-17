@@ -18,6 +18,7 @@ async def test_valkey_outputs_generation(
     output_processor = ValkeyAppOutputProcessor()
 
     helm_values = {
+        "APOLO_PASSED_CONFIG": "",
         "image": {
             "repository": "valkey/valkey",
             "tag": "9.0.1",
