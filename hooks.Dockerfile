@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY README.md poetry.lock pyproject.toml /app/
-COPY .apolo /app/.apolo
+COPY .apolo .apolo
 RUN pip --no-cache-dir install poetry && poetry install --only-root --no-cache
 
 ENTRYPOINT ["app-types"]

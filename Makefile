@@ -45,6 +45,7 @@ test-helm:
 
 .PHONY: build-hook-image
 build-hook-image:
+	DOCKER_BUILDKIT=1 \
 	docker build \
 		--build-arg APP_IMAGE_TAG=$(IMAGE_TAG) \
 		-t $(IMAGE_NAME):latest \
