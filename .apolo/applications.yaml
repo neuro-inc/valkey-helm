@@ -4,6 +4,7 @@
   install_type: workflow
   helm_path: valkey
   app_package_name: apolo_apps_valkey
+  requires_token: true
   inputs:
     schema_path: .apolo/src/apolo_apps_valkey/schemas/ValkeyAppInputs.json
     types_name: ValkeyAppInputs

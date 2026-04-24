@@ -9,14 +9,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && rm -rf /var/lib/apt/lists/* \
+    && useradd -m -d /app app
 
 WORKDIR /app
 
-COPY README.md poetry.lock pyproject.toml /app/
+COPY README.md poetry.lock pyproject.toml .
 RUN pip --no-cache-dir install poetry && poetry install --no-root --no-cache
 
 COPY .apolo .apolo
-RUN poetry install --only-root --no-cache
+RUN poetry install --only-root --no-cache \
+    && chown -R app:app /app
+
+USER app
 
 ENTRYPOINT ["app-types"]
